@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Local env files
+.env
+.env.local
+.env*.local
+
+# Build artifacts
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
