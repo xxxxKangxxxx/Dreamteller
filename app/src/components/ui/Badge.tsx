@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { colors } from '@/constants/colors';
+import { EMOTION_META } from '@/constants/emotion';
 import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { DreamType, Emotion } from '@/types/dream';
@@ -14,20 +15,6 @@ interface BadgeProps {
   dreamType?: DreamType;
   style?: ViewStyle;
 }
-
-const EMOTION_COLOR: Record<Emotion, string> = {
-  POSITIVE: colors.emotionPositive,
-  NEGATIVE: colors.emotionNegative,
-  NEUTRAL: colors.emotionNeutral,
-  MIXED: colors.emotionMixed,
-};
-
-const EMOTION_EMOJI: Record<Emotion, string> = {
-  POSITIVE: '😊',
-  NEGATIVE: '😰',
-  NEUTRAL: '😐',
-  MIXED: '🌀',
-};
 
 export const DREAM_TYPE_EMOJI: Record<DreamType, string> = {
   PREDICTION: '🔮',
@@ -44,7 +31,7 @@ function resolveColors(
 ): { bg: string; text: string } {
   switch (variant) {
     case 'emotion': {
-      const color = emotion ? EMOTION_COLOR[emotion] : colors.primaryLight;
+      const color = emotion ? EMOTION_META[emotion].color : colors.primaryLight;
       return { bg: `${color}26`, text: color };
     }
     case 'dreamType':
@@ -62,7 +49,7 @@ export function Badge({ label, variant = 'count', emotion, dreamType, style }: B
   const { bg, text } = resolveColors(variant, emotion);
   const emoji =
     variant === 'emotion' && emotion
-      ? EMOTION_EMOJI[emotion]
+      ? EMOTION_META[emotion].emoji
       : variant === 'dreamType' && dreamType
         ? DREAM_TYPE_EMOJI[dreamType]
         : variant === 'premium'

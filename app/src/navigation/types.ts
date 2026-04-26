@@ -9,6 +9,7 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
+  Splash: undefined;
   Tabs: NavigatorScreenParams<TabParamList>;
   RecordChat: undefined;
   RecordSummary: { sessionId: string };

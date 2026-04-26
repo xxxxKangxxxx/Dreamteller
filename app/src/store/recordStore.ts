@@ -18,6 +18,7 @@ export interface RecordSession {
 interface RecordState {
   session: RecordSession | null;
   startSession: () => void;
+  hydrate: (session: RecordSession) => void;
   appendMessage: (message: ChatMessage) => void;
   setStep: (step: RecordStep) => void;
   setSummary: (summary: string) => void;
@@ -46,6 +47,10 @@ export const useRecordStore = create<RecordState>((set, get) => ({
 
   startSession() {
     set({ session: createSession() });
+  },
+
+  hydrate(session) {
+    set({ session });
   },
 
   appendMessage(message) {

@@ -2,9 +2,11 @@ import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
+import { EMOTION_META } from '@/constants/emotion';
 import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { Dream } from '@/types/dream';
+import { formatDateKoShort } from '@/utils/date';
 
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
@@ -15,21 +17,6 @@ interface DreamCardProps {
     'id' | 'title' | 'emotion' | 'dreamType' | 'illustrationUrl' | 'recordedAt' | 'hasInterpretation'
   >;
   onPress: (id: string) => void;
-}
-
-const EMOTION_PLACEHOLDER: Record<Dream['emotion'], string> = {
-  POSITIVE: '😊',
-  NEGATIVE: '😰',
-  NEUTRAL: '😐',
-  MIXED: '🌀',
-};
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  return `${month}월 ${day}일`;
 }
 
 export function DreamCard({ dream, onPress }: DreamCardProps) {
@@ -45,7 +32,7 @@ export function DreamCard({ dream, onPress }: DreamCardProps) {
               transition={150}
             />
           ) : (
-            <Text style={styles.emoji}>{EMOTION_PLACEHOLDER[dream.emotion]}</Text>
+            <Text style={styles.emoji}>{EMOTION_META[dream.emotion].emoji}</Text>
           )}
         </View>
 
@@ -53,9 +40,13 @@ export function DreamCard({ dream, onPress }: DreamCardProps) {
           <Text style={styles.title} numberOfLines={1}>
             {dream.title || '제목 없는 꿈'}
           </Text>
-          <Text style={styles.date}>{formatDate(dream.recordedAt)}</Text>
+          <Text style={styles.date}>{formatDateKoShort(dream.recordedAt)}</Text>
           <View style={styles.badges}>
-            <Badge variant="emotion" emotion={dream.emotion} label={dream.emotion} />
+            <Badge
+              variant="emotion"
+              emotion={dream.emotion}
+              label={EMOTION_META[dream.emotion].label}
+            />
             {dream.hasInterpretation ? (
               <Badge variant="dreamType" dreamType={dream.dreamType} label="해몽 완료" />
             ) : null}

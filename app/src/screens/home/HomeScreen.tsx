@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { DreamCard } from '@/components/dream/DreamCard';
@@ -7,7 +10,11 @@ import { Card } from '@/components/ui/Card';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
+import type { RootStackParamList } from '@/navigation/types';
 import type { Dream } from '@/types/dream';
+import { maybePromptResume } from '@/utils/sessionResume';
+
+type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 const SAMPLE_DREAMS: Dream[] = [
   {
@@ -35,6 +42,12 @@ const SAMPLE_DREAMS: Dream[] = [
 ];
 
 export function HomeScreen() {
+  const navigation = useNavigation<Navigation>();
+
+  useEffect(() => {
+    void maybePromptResume(() => navigation.navigate('RecordChat'));
+  }, [navigation]);
+
   return (
     <ScreenWrapper hasTabBar scrollable>
       <View style={styles.header}>
@@ -45,7 +58,12 @@ export function HomeScreen() {
       <Card variant="dream" padding="lg" style={styles.ctaCard}>
         <Text style={styles.ctaTitle}>오늘 꿈을 기록해볼까요?</Text>
         <Text style={styles.ctaDesc}>Luna가 대화로 도와드릴게요 ✨</Text>
-        <Button label="기록 시작" onPress={() => {}} variant="primary" fullWidth />
+        <Button
+          label="기록 시작"
+          onPress={() => navigation.navigate('RecordChat')}
+          variant="primary"
+          fullWidth
+        />
       </Card>
 
       <Text style={styles.sectionLabel}>최근 꿈</Text>
