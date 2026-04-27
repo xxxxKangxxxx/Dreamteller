@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { colors } from '@/constants/colors';
 import { CharacterDetailScreen } from '@/screens/archive/CharacterDetailScreen';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
 import { SignupScreen } from '@/screens/auth/SignupScreen';
@@ -21,11 +22,15 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const status = useAuthStore((s) => s.status);
 
+  const navigatorKey =
+    status === 'authenticated' ? 'app' : status === 'unauthenticated' ? 'auth' : 'splash';
+
   return (
     <Stack.Navigator
+      key={navigatorKey}
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: 'transparent' },
+        contentStyle: { backgroundColor: colors.bgBase },
       }}
     >
       {status === 'idle' || status === 'loading' ? (

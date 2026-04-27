@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DreamCard } from '@/components/dream/DreamCard';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
@@ -12,6 +13,7 @@ import { spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { RootStackParamList } from '@/navigation/types';
 import type { Dream } from '@/types/dream';
+import { getGreeting } from '@/utils/date';
 import { maybePromptResume } from '@/utils/sessionResume';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -43,6 +45,7 @@ const SAMPLE_DREAMS: Dream[] = [
 
 export function HomeScreen() {
   const navigation = useNavigation<Navigation>();
+  const greeting = getGreeting();
 
   useEffect(() => {
     void maybePromptResume(() => navigation.navigate('RecordChat'));
@@ -51,7 +54,19 @@ export function HomeScreen() {
   return (
     <ScreenWrapper hasTabBar scrollable>
       <View style={styles.header}>
-        <Text style={styles.greeting}>좋은 아침이에요 🌙</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.greeting}>
+            {greeting.label} {greeting.emoji}
+          </Text>
+          <Pressable
+            onPress={() => navigation.navigate('Settings')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="설정"
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
+          </Pressable>
+        </View>
         <Text style={styles.subtitle}>오늘 밤엔 어떤 꿈을 꿨나요?</Text>
       </View>
 
@@ -81,6 +96,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     gap: spacing.sm,
     marginBottom: spacing.xl,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   greeting: {
     ...textStyles.heading1,

@@ -1,13 +1,188 @@
-import { Placeholder } from '@/components/layout/Placeholder';
-import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Button } from '@/components/ui/Button';
+import { colors } from '@/constants/colors';
+import { radius, spacing } from '@/constants/spacing';
+import { textStyles } from '@/constants/typography';
+import type { RootStackParamList } from '@/navigation/types';
+import { supabaseAuth } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
+
+type Navigation = NativeStackNavigationProp<RootStackParamList, 'Signup'>;
 
 export function SignupScreen() {
+  const navigation = useNavigation<Navigation>();
+  const login = useAuthStore((s) => s.login);
+  const showToast = useUIStore((s) => s.showToast);
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
+    !submitting;
+
+  const handleSignup = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const result = await supabaseAuth.signUpWithEmail(
+        email.trim(),
+        password,
+        name.trim(),
+      );
+      if (result) {
+        await login(result);
+        return;
+      }
+      Alert.alert(
+        '확인 메일을 보냈어요',
+        '메일함에서 인증을 완료한 뒤 다시 로그인해주세요',
+        [
+          {
+            text: '로그인 화면으로',
+            onPress: () => navigation.navigate('Login'),
+          },
+        ],
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '회원가입에 실패했어요';
+      showToast(message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <ScreenWrapper>
-      <Placeholder
-        title="회원가입"
-        description="이메일 가입 플로우 — 약관 동의 포함 예정"
-      />
-    </ScreenWrapper>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>회원가입</Text>
+            <Text style={styles.subtitle}>꿈을 함께 풀어가요 🌙</Text>
+          </View>
+
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="이름"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              editable={!submitting}
+            />
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="이메일"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!submitting}
+            />
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="비밀번호 (6자 이상)"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password-new"
+              editable={!submitting}
+            />
+          </View>
+
+          <View style={styles.actions}>
+            <Button
+              label="가입하기"
+              variant="primary"
+              onPress={() => {
+                void handleSignup();
+              }}
+              disabled={!canSubmit}
+              loading={submitting}
+              fullWidth
+            />
+            <Button
+              label="이미 계정이 있어요"
+              variant="ghost"
+              onPress={() => navigation.navigate('Login')}
+              disabled={submitting}
+              fullWidth
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.bgBase,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    justifyContent: 'space-between',
+    gap: spacing.xl,
+  },
+  headerBlock: {
+    gap: spacing.sm,
+    paddingTop: spacing.xl,
+  },
+  title: {
+    ...textStyles.heading1,
+    color: colors.textPrimary,
+  },
+  subtitle: {
+    ...textStyles.body,
+    color: colors.textSecondary,
+  },
+  form: {
+    gap: spacing.sm,
+  },
+  input: {
+    height: 48,
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.base,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...textStyles.body,
+  },
+  actions: {
+    gap: spacing.sm,
+  },
+});

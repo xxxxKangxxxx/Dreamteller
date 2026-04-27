@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChatBubble } from '@/components/dream/ChatBubble';
+import { ToastContainer } from '@/components/ui/Toast';
 import { colors } from '@/constants/colors';
 import { config } from '@/constants/config';
 import { FALLBACK_MESSAGES } from '@/constants/prompts';
@@ -139,6 +140,7 @@ export function RecordChatScreen() {
   const currentStep = session?.step ?? 1;
 
   return (
+    <>
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Pressable
@@ -201,6 +203,8 @@ export function RecordChatScreen() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    <ToastContainer topOffset={48} />
+    </>
   );
 }
 

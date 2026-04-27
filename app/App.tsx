@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ToastContainer } from '@/components/ui/Toast';
 import { colors } from '@/constants/colors';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { setUnauthorizedHandler } from '@/services/api';
@@ -48,6 +49,7 @@ export default function App() {
         <NavigationContainer theme={navigationTheme}>
           <StatusBar style="light" />
           <RootNavigator />
+          <ToastContainer />
         </NavigationContainer>
       </SafeAreaProvider>
     </QueryClientProvider>
