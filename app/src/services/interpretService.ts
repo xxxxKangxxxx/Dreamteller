@@ -1,76 +1,28 @@
-import { config } from '@/constants/config';
 import type { ChatMessage, Interpretation } from '@/types/dream';
 
-import { ApiError, request, tokenStorage } from './api';
+import { request } from './api';
 
-export type ChatStreamEvent =
-  | { type: 'text'; content: string }
-  | { type: 'step'; nextStep: number }
-  | { type: 'done' }
-  | { type: 'error'; message: string };
-
-export interface ChatStreamPayload {
+export interface ChatTurnPayload {
   sessionId: string;
   messages: ChatMessage[];
   step: number;
   signal?: AbortSignal;
-  onEvent: (event: ChatStreamEvent) => void;
 }
 
-async function readSseStream(
-  response: Response,
-  onEvent: (event: ChatStreamEvent) => void,
-): Promise<void> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new ApiError('AI_SERVICE_ERROR', 'SSE 스트림을 열 수 없어요', 0);
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let boundary = buffer.indexOf('\n');
-    while (boundary !== -1) {
-      const line = buffer.slice(0, boundary).trim();
-      buffer = buffer.slice(boundary + 1);
-      boundary = buffer.indexOf('\n');
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (!payload) continue;
-      try {
-        const event = JSON.parse(payload) as ChatStreamEvent;
-        onEvent(event);
-        if (event.type === 'done') return;
-      } catch {
-        onEvent({ type: 'error', message: '스트림 파싱 오류' });
-        return;
-      }
-    }
-  }
+export interface ChatTurnResponse {
+  text: string;
+  nextStep: number;
+  complete: boolean;
 }
 
 export const interpretService = {
-  async streamChat({ sessionId, messages, step, signal, onEvent }: ChatStreamPayload) {
-    const token = await tokenStorage.getAccessToken();
-    const response = await fetch(`${config.apiBaseUrl}/interpret/chat`, {
+  chatTurn({ sessionId, messages, step, signal }: ChatTurnPayload) {
+    return request<ChatTurnResponse>({
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ sessionId, messages, step }),
+      url: '/interpret/chat',
+      data: { sessionId, messages, step },
       signal,
     });
-
-    if (!response.ok) {
-      throw new ApiError('AI_SERVICE_ERROR', `AI 응답 실패 (${response.status})`, response.status);
-    }
-
-    await readSseStream(response, onEvent);
   },
 
   generate(dreamId: string) {

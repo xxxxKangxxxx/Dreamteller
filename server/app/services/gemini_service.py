@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from collections.abc import Iterator
 from functools import lru_cache
@@ -9,6 +10,8 @@ from google.genai import types
 
 from app.config import settings
 from app.schemas.dream import ChatMessage
+
+logger = logging.getLogger("gemini")
 
 MAX_RETRIES = 3
 BASE_BACKOFF_S = 1.5
@@ -65,11 +68,51 @@ def _collect_chunks(messages: list[ChatMessage], step: int) -> list[str]:
         history=history,
     )
 
+    started = time.monotonic()
     parts: list[str] = []
+    chunk_count = 0
+    empty_chunk_count = 0
+    last_finish_reason: str | None = None
+    last_block_reason: str | None = None
     for chunk in chat.send_message_stream(messages[-1].content):
+        chunk_count += 1
         text = getattr(chunk, "text", None)
         if text:
             parts.append(text)
+        else:
+            empty_chunk_count += 1
+        candidates = getattr(chunk, "candidates", None) or []
+        if candidates:
+            fr = getattr(candidates[0], "finish_reason", None)
+            if fr is not None:
+                last_finish_reason = str(fr)
+        feedback = getattr(chunk, "prompt_feedback", None)
+        if feedback is not None:
+            br = getattr(feedback, "block_reason", None)
+            if br is not None:
+                last_block_reason = str(br)
+
+    elapsed = time.monotonic() - started
+    total_chars = sum(len(p) for p in parts)
+    logger.info(
+        "gemini chat step=%s chunks=%s empty=%s parts=%s chars=%s elapsed=%.2fs finish=%s block=%s",
+        step,
+        chunk_count,
+        empty_chunk_count,
+        len(parts),
+        total_chars,
+        elapsed,
+        last_finish_reason,
+        last_block_reason,
+    )
+    if not parts:
+        logger.warning(
+            "gemini chat returned NO TEXT (chunks=%s, finish=%s, block=%s) — "
+            "client will see SSE done with no content",
+            chunk_count,
+            last_finish_reason,
+            last_block_reason,
+        )
     return parts
 
 
@@ -148,9 +191,29 @@ def stream_chat(messages: list[ChatMessage], step: int) -> Iterator[str]:
             for p in parts:
                 yield p
             return
+        except genai_errors.ClientError as exc:
+            code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            logger.error(
+                "gemini ClientError code=%s attempt=%s/%s msg=%s",
+                code,
+                attempt + 1,
+                MAX_RETRIES,
+                exc,
+            )
+            raise
         except genai_errors.ServerError as exc:
             last_exc = exc
-            if attempt < MAX_RETRIES - 1 and "UNAVAILABLE" in str(exc):
+            code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            is_unavailable = "UNAVAILABLE" in str(exc)
+            logger.warning(
+                "gemini ServerError code=%s unavailable=%s attempt=%s/%s msg=%s",
+                code,
+                is_unavailable,
+                attempt + 1,
+                MAX_RETRIES,
+                exc,
+            )
+            if attempt < MAX_RETRIES - 1 and is_unavailable:
                 time.sleep(BASE_BACKOFF_S * (2**attempt))
                 continue
             raise

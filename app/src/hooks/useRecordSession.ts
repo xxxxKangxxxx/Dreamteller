@@ -1,6 +1,7 @@
+import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { RECORD_COMPLETE_SIGNAL, STEP_OPENING_QUESTIONS } from '@/constants/prompts';
+import { STEP_OPENING_QUESTIONS } from '@/constants/prompts';
 import { interpretService } from '@/services/interpretService';
 import { type RecordStep, useRecordStore } from '@/store/recordStore';
 
@@ -19,7 +20,6 @@ export function useRecordSession() {
   const setStep = useRecordStore((s) => s.setStep);
   const complete = useRecordStore((s) => s.complete);
 
-  const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -53,12 +53,7 @@ export function useRecordSession() {
       abortRef.current?.abort();
       abortRef.current = controller;
 
-      setStreamingText('');
       setIsStreaming(true);
-
-      let buffer = '';
-      let nextStep: RecordStep | null = null;
-      let finishedWithCompleteSignal = false;
 
       try {
         const nextMessages = [
@@ -66,41 +61,26 @@ export function useRecordSession() {
           { role: 'user' as const, content: trimmed },
         ];
 
-        await interpretService.streamChat({
+        const result = await interpretService.chatTurn({
           sessionId: active.sessionId,
           messages: nextMessages,
           step: active.step,
           signal: controller.signal,
-          onEvent: (event) => {
-            if (event.type === 'text') {
-              buffer += event.content;
-              if (buffer.includes(RECORD_COMPLETE_SIGNAL)) {
-                finishedWithCompleteSignal = true;
-                buffer = buffer.replace(RECORD_COMPLETE_SIGNAL, '').trim();
-              }
-              setStreamingText(buffer);
-            } else if (event.type === 'step' && isRecordStep(event.nextStep)) {
-              nextStep = event.nextStep;
-            } else if (event.type === 'error') {
-              throw new Error(event.message);
-            }
-          },
         });
 
-        if (buffer.length > 0) {
-          appendMessage({ role: 'assistant', content: buffer });
+        if (result.text.length > 0) {
+          appendMessage({ role: 'assistant', content: result.text });
         }
-        if (nextStep) setStep(nextStep);
-        if (finishedWithCompleteSignal) complete();
+        if (isRecordStep(result.nextStep)) setStep(result.nextStep);
+        if (result.complete) complete();
 
         return { error: null };
       } catch (err) {
-        if (controller.signal.aborted) return { error: null };
+        if (controller.signal.aborted || axios.isCancel(err)) return { error: null };
         const message = err instanceof Error ? err.message : '알 수 없는 오류';
         return { error: message };
       } finally {
         setIsStreaming(false);
-        setStreamingText('');
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
@@ -111,12 +91,11 @@ export function useRecordSession() {
     abortRef.current?.abort();
     abortRef.current = null;
     setIsStreaming(false);
-    setStreamingText('');
   }, []);
 
   return {
     session,
-    streamingText,
+    streamingText: '',
     isStreaming,
     ensureSession,
     send,

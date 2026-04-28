@@ -1,11 +1,33 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-04-27 (백엔드 FastAPI 골격 + dreams/stats/interpret 라우트 + DB 스키마 적용)
+> 최종 업데이트: 2026-04-28 (`/api/interpret/chat` SSE→JSON 전환 + RecordChat swipe-dismiss 차단 + 진단 로그)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-04-27 후반)
+## 오늘 세션 요약 (2026-04-28)
+
+### 완료
+1. **`/api/interpret/chat` SSE → JSON 전환** ⭐ — RN fetch가 `response.body.getReader()`를 지원하지 않아 SSE 첫 chunk부터 throw하던 문제 해결
+   - 백엔드: `StreamingResponse(text/event-stream)` → `dict[str, Any]` (success envelope)로 변경. Gemini SDK 스트리밍 chunk를 누적해 `{text, nextStep, complete}`로 한 번에 반환. `[RECORD_COMPLETE]` 토큰은 백엔드에서 감지·제거 후 `complete: true`로 변환
+   - 클라이언트: `interpretService.streamChat` + SSE 파서 통째로 제거 → 단순 `chatTurn(payload)` + 일반 `request<>()` 사용. `useRecordSession`에서 토큰 누적/`streamingText`/SSE 이벤트 분기 로직 제거. `streamingText: ''`는 호환성 위해 유지 (`<ChatBubble isStreaming content="" />`로 typing dots 표시)
+   - Gemini API 호출 방식·모델·비용 1도 안 변함. 백엔드↔클라이언트 사이의 전송 방식만 변경
+2. **백엔드 진단 로그 강화** — `gemini_service._collect_chunks`에 chunks/empty/parts/chars/elapsed/finish_reason/block_reason 로그. `parts=0`일 때 명시적 WARNING. `ServerError`/`ClientError` 분리 로그 (code, attempt, unavailable). `/chat` 라우트에도 enter/done 로그 (session, msgs, last_role, chars, next_step, complete)
+   - `app/main.py`에 `logging.basicConfig(level=INFO)` 추가 — 기본 WARNING 레벨이라 INFO 로그가 안 보이던 문제 해결
+3. **RecordChat 모달 swipe-dismiss 차단** — `presentation: 'modal'` 화면이 iOS swipe-down 제스처로 우발 dismiss 되어 진행 중 세션이 사라지던 문제. `RootNavigator`의 RecordChat 옵션에 `gestureEnabled: false` 추가. X 버튼(`handleClose`)으로만 종료 가능
+4. **진단 결과 — 무료 티어 일 20회 한도 도달** — step 5에서 토스트 에러 발생. 백엔드 로그에 `ClientError 429 RESOURCE_EXHAUSTED` + `generate_content_free_tier_requests, limit: 20` 명확히 찍힘. PT 자정(한국 오후 4~5시)까지 자연 리셋 대기
+
+### 검증 (시뮬레이터 실측)
+- ✅ `/api/interpret/chat` step 1→2→3→4까지 정상 응답 (chunks, chars, elapsed 모두 INFO 로그)
+- ✅ 단일 sessionId(`sess_moi8p05x`)로 step 1→5까지 끝까지 진행 (msgs 1→11 누적). swipe-dismiss 차단 후 세션 유지 확정
+- ⚠️ step 5 응답에서 일일 한도 초과로 429 → 토스트 에러 (재현 가능, 외부 quota 문제)
+
+### 직전 차단점
+- Gemini 무료 티어 일 20회 quota — 한국 오후 4~5시(PT 자정) 리셋 후 step 5 / RecordSummary / Interpret generate 흐름 재검증 필요
+
+---
+
+## 이전 세션 요약 (2026-04-27 후반)
 
 ### 완료 (트랙 C — 운영 디테일)
 1. **HomeScreen 그리팅 시간대 분기** — `utils/date.ts:getGreeting()` 추가, 시간대별 인사말+이모지 (☀️/🌤️/🌆/🌙)
@@ -159,15 +181,12 @@
 
 ## 다음 작업 (우선순위 순)
 
-### [1] `/api/interpret/chat` SSE 안정화 ⭐
-- 시뮬레이터에서 메시지 보내도 Luna 응답이 화면에 안 뜨는 케이스 발견
-- 백엔드 로그는 200 OK + 정상 종료 → 클라이언트 SSE 파싱 또는 RN fetch streaming 한계 의심
-- 디버깅 순서:
-  - (a) 클라이언트 `interpretService.streamChat` 안에 `console.log(line)` 박아서 raw SSE 도달 여부 확인
-  - (b) RN fetch가 `response.body.getReader()` 지원 안 하면 → 백엔드를 비-스트리밍 JSON으로 단순화 (`{ text, nextStep, complete }`) + 앱 호출부도 일반 POST로 교체
-  - (c) 또는 `react-native-sse` 폴리필 도입
+### [1] Gemini quota 회복 후 RecordChat 5단계 + RecordSummary + Interpret generate 재검증 ⭐
+- 한국 오후 4~5시(PT 자정) 일일 quota 리셋 후 step 5 마지막 응답 → `[RECORD_COMPLETE]` 감지 → RecordSummary 진입 흐름 통과 확인
+- RecordSummary 저장(`POST /api/dreams`) → `interpretService.generate` → polling → InterpretDetail 표시까지 end-to-end 한 번 끝까지 통과
+- 추가로 운영 권장 시점에 Gemini **유료 전환** 검토 (CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙. 입력 $0.30 / 출력 $2.50 per 1M 토큰. AI Studio Billing 연결 + spending cap 화면 확인 — 4/27 cap 0$ 사고 재발 방지)
 
-### [2] Apple / Google 로그인 추가
+### [2] Apple / Google 소셜 로그인 추가
 - Supabase 콘솔 Provider 설정 + Apple/GCP OAuth 클라이언트
 - `expo-apple-authentication` / Google Sign-In 통합 + `supabase.auth.signInWithIdToken`
 
@@ -179,12 +198,32 @@
 - 아이콘/스플래시 디자인 결정 후 교체
 
 ### [5] 기타
-- `/api/interpret/chat` 흐름 안정화되면 RecordSummary 저장 흐름 검증 (`POST /api/dreams` 통과)
 - Husky / Lint-staged (선택)
 
 ---
 
 ## 오류 및 해결 내역
+
+### [2026-04-28] RN fetch가 SSE 스트림 지원 안 함 → 토스트 에러
+- **증상**: RecordChat에서 메시지 보내면 즉시 "연결에 실패했어요" 토스트. 백엔드 로그는 200 OK + Gemini 응답 정상(`chars=109, finish=STOP`)
+- **원인**: `interpretService.streamChat`의 `response.body?.getReader()`가 React Native fetch에서 `undefined` 반환 → 첫 줄에서 `ApiError('SSE 스트림을 열 수 없어요')` throw. RN fetch는 표준 Web Streams API 미지원
+- **해결**: SSE 자체를 제거하고 비-스트리밍 JSON으로 단순화. 백엔드는 Gemini 스트리밍 chunk를 누적해 `{text, nextStep, complete}` 한 번에 반환. 클라이언트도 일반 `request<>()`로 호출. `streamingText` 토큰 누적 로직 제거하고 `<ChatBubble isStreaming content="" />`로 typing dots만 표시
+- **재발 방지**: RN의 fetch는 Web 표준 fetch와 동일하지 않음. `getReader()`/`ReadableStream`/SSE 같은 표준 streaming API는 폴리필 없이 동작 안 한다고 가정. 새 streaming 기능 도입 전 사전 확인
+
+### [2026-04-28] RecordChat 모달 swipe-dismiss로 진행 중 세션 유실
+- **증상**: step 3~4 진행 중 사용자가 다시 RecordChat 진입하면 새 sessionId로 step 1부터 시작. "앱이 새로고침되는 느낌"으로 인식
+- **원인**: `RootNavigator`의 RecordChat 화면이 `presentation: 'modal'`인데, iOS 네이티브 모달은 기본적으로 위→아래 swipe 제스처로 dismiss 가능. swipe-dismiss는 `handleClose` Alert("그만두기" 확인)를 거치지 않지만, modal 닫힘 자체는 일어남. 그 후 사용자가 다시 진입할 때 `recordStore.session`이 어떤 경로에서 null로 변하면서 새 세션으로 시작됨 (정확한 reset 콜사이트는 미확정 — gestureEnabled 차단 후 증상 사라져 추가 추적은 보류)
+- **해결**: `RootNavigator`의 RecordChat options에 `gestureEnabled: false` 추가. 단일 sessionId로 step 1→5까지 통과 확인 (재현 후 Metro 로그에서 단일 sessionId 검증)
+- **재발 방지**: 진행 중 데이터를 가진 modal/screen은 기본 dismiss 제스처 활성화 여부 점검. 우발 종료 시 데이터 보존 경로(persist)가 없으면 제스처 차단
+
+### [2026-04-28] Gemini 무료 티어 일 20회 한도 초과
+- **증상**: step 5 응답에서 토스트 에러. 백엔드 로그에 `google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED`. 응답 body에 `Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash`
+- **원인**: 하루 진단·테스트 누적 호출이 무료 티어 일일 20회 한도 도달
+- **해결 옵션**:
+  - PT 자정(한국 오후 4~5시) 자연 리셋 대기 — 임시
+  - 새 프로젝트 + 새 API key 발급 후 `server/.env` 교체 + 백엔드 재시작 — 임시 (또 금방 초과 가능)
+  - **유료 전환** ⭐ — CLAUDE.md 규칙 ("실서비스 시작 전 반드시 유료 전환"). 입력 $0.30 / 출력 $2.50 per 1M 토큰
+- **재발 방지**: 백엔드 진단 로그(`gemini ClientError code=429`)로 즉시 식별 가능. 새 키 발급 시 spending cap 화면(`https://ai.studio/spend`) 동시 확인 (4/27 cap 0$ 사고 재발 방지)
 
 ### [2026-04-27] Toast 시스템에 렌더러 누락
 - **증상**: LoginScreen 로그인 실패 / RecordChat 메시지 전송 실패 등에서 `showToast(...)` 호출은 일어나지만 화면에 토스트가 안 보임. 사용자에겐 무반응으로 인식됨

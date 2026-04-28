@@ -1,11 +1,7 @@
-import json
 import logging
-import traceback
-from collections.abc import Iterator
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.deps.auth import get_current_user_id
@@ -31,25 +27,36 @@ class GeneratePayload(BaseModel):
     dreamId: str
 
 
-def _sse(event: dict) -> str:
-    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+RECORD_COMPLETE_TOKEN = "[RECORD_COMPLETE]"
 
 
 @router.post("/chat")
-def chat(payload: ChatPayload, _user_id: UserId) -> StreamingResponse:
+def chat(payload: ChatPayload, _user_id: UserId) -> dict[str, Any]:
     next_step = min(payload.step + 1, 5)
+    logger.info(
+        "interpret/chat enter session=%s step=%s msgs=%s last_role=%s last_len=%s",
+        payload.sessionId,
+        payload.step,
+        len(payload.messages),
+        payload.messages[-1].role if payload.messages else None,
+        len(payload.messages[-1].content) if payload.messages else 0,
+    )
 
-    def generator() -> Iterator[str]:
-        try:
-            for text in stream_chat(payload.messages, payload.step):
-                yield _sse({"type": "text", "content": text})
-            yield _sse({"type": "step", "nextStep": next_step})
-            yield _sse({"type": "done"})
-        except Exception as exc:
-            logger.error("interpret/chat failed: %s\n%s", exc, traceback.format_exc())
-            yield _sse({"type": "error", "message": f"{type(exc).__name__}: {exc}"})
+    parts: list[str] = list(stream_chat(payload.messages, payload.step))
+    text = "".join(parts)
+    complete = RECORD_COMPLETE_TOKEN in text
+    if complete:
+        text = text.replace(RECORD_COMPLETE_TOKEN, "").rstrip()
 
-    return StreamingResponse(generator(), media_type="text/event-stream")
+    logger.info(
+        "interpret/chat done session=%s chars=%s next_step=%s complete=%s",
+        payload.sessionId,
+        len(text),
+        next_step,
+        complete,
+    )
+
+    return success({"text": text, "nextStep": next_step, "complete": complete})
 
 
 def _run_interpretation(dream_id: str, raw_content: str) -> None:

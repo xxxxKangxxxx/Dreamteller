@@ -41,7 +41,11 @@ export function RootNavigator() {
           <Stack.Screen
             name="RecordChat"
             component={RecordChatScreen}
-            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            options={{
+              presentation: 'modal',
+              animation: 'slide_from_bottom',
+              gestureEnabled: false,
+            }}
           />
           <Stack.Screen name="RecordSummary" component={RecordSummaryScreen} />
           <Stack.Screen name="InterpretDetail" component={InterpretScreen} />
