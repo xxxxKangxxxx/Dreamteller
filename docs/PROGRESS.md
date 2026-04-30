@@ -1,6 +1,6 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-04-30 (Google OAuth 검증 + dev-client 빌드 전환 + RecordChat end-to-end 검증 + 해몽 로딩 UX 개선 + StarParticleLoader 업그레이드)
+> 최종 업데이트: 2026-04-30 (Google OAuth 검증 + dev-client 빌드 전환 + RecordChat end-to-end 검증 + 해몽 로딩 UX 개선 + StarParticleLoader 업그레이드 + OnboardingScreen 실 구현)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
@@ -8,6 +8,14 @@
 ## 오늘 세션 요약 (2026-04-30)
 
 ### 완료
+0. **OnboardingScreen 실 구현** — Placeholder → SPEC 명세 그대로 3단계 슬라이드
+   - `FlatList horizontal pagingEnabled` + `onMomentumScrollEnd`로 currentIndex 추적
+   - 슬라이드: 🌙 "꿈을 잊기 전에 / AI가 먼저 물어볼게요" → 🔮 "꿈에 숨겨진 이야기 / 당신만의 의미로 해석해드려요" → 📖 "나만의 꿈 세계관 / 아카이브로 차곡차곡 쌓아가요"
+   - 상단 우측 "건너뛰기"(페이지 1·2만 표시) → Login 직행
+   - 하단 dot indicator (active 18px×6px / 비활성 6×6, primaryLight/borderLight)
+   - 하단 CTA: 페이지 1·2 "다음" 단일 버튼(`scrollToIndex`) / 페이지 3 "로그인" + "회원가입" 두 버튼 (SPEC 명세 그대로)
+   - 디자인 토큰 100% 사용(colors/spacing/textStyles), SafeAreaView 상하 edges로 노치 대응
+   - `npx tsc --noEmit` 통과
 1. **Google OAuth 검증 + 흐름 정상화** ⭐ — 어제 미커밋 상태였던 Google 로그인 코드(`signInWithGoogle`, `expo-web-browser`/`expo-linking`, LoginScreen Google 버튼) 시뮬레이터에서 끝까지 검증
    - Expo Go 환경에서 ASWebAuthenticationSession이 Supabase OAuth 시작 페이지에서 빈 화면으로 멈추는 이슈 발견. iOS 26 시뮬레이터 + `host.exp.Exponent` 환경 + ASWebAuthenticationSession 조합의 알려진 케이스
    - 진단 로그 (`[google-oauth] redirectTo`/`signInWithOAuth`/`webBrowser result`) 임시 추가 → URL/result type 확인. URL 자체는 정상, result는 `cancel`(callback 못 받음) 패턴
@@ -222,9 +230,9 @@
 ### 🚀 배포 전
 
 #### [1] 남은 stub 화면 처리 ⭐
-- **OnboardingScreen** — 1~3 페이지 슬라이드(실 구현 권장)
-- **DreamCardScreen** — 해몽 카드 이미지 저장/공유. InterpretScreen "해몽 카드로 저장" 버튼이 이리로 연결됨. 배포 전 구현 또는 버튼 임시 숨김
-- **CharacterDetailScreen** — 꿈 캐릭터 상세 (Phase 2 기능이면 진입점 자체 숨김)
+- ✅ **OnboardingScreen** — 2026-04-30 실 구현 완료 (3단계 슬라이드 + dot indicator + 마지막 페이지 로그인/회원가입)
+- **DreamCardScreen** — 해몽 카드 이미지 저장/공유. InterpretScreen "해몽 카드로 저장" 버튼이 이리로 연결됨. `react-native-view-shot` 추가 + Galaxy/Mist/Neon 카드 스타일 3종 + iOS Share Sheet
+- **CharacterDetailScreen** — 진입점 자체가 ArchiveScreen에 미연결 (등장인물/장소/테마 탭은 캐릭터 추출 AI 파이프라인 필요 → 사실상 Phase 2 범위). 라우트만 유지하고 화면은 stub 유지 결정. ArchiveScreen 캐릭터 탭 구현 시 본격 구현
 
 #### [2] 디자인 에셋 + Pretendard 폰트
 - 앱 아이콘 (1024×1024) + 스플래시 이미지 (현재 placeholder 교체)
