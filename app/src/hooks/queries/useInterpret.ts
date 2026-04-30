@@ -3,9 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/constants/queryKeys';
 import { ApiError } from '@/services/api';
 import { interpretService } from '@/services/interpretService';
+import type { Interpretation } from '@/types/dream';
 
 const POLL_INTERVAL_MS = 2_000;
 const MAX_POLL_DURATION_MS = 60_000;
+
+const buildProcessingPlaceholder = (dreamId: string): Interpretation => ({
+  dreamId,
+  symbolAnalysis: '',
+  psychologicalMeaning: '',
+  unconsciousMessage: '',
+  status: 'processing',
+});
 
 export function useInterpret(dreamId: string | undefined) {
   return useQuery({
@@ -17,7 +26,14 @@ export function useInterpret(dreamId: string | undefined) {
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {
           await interpretService.generate(dreamId);
-          return interpretService.get(dreamId);
+          try {
+            return await interpretService.get(dreamId);
+          } catch (innerError) {
+            if (innerError instanceof ApiError && innerError.status === 404) {
+              return buildProcessingPlaceholder(dreamId);
+            }
+            throw innerError;
+          }
         }
         throw error;
       }

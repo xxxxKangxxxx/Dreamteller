@@ -1,11 +1,47 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-04-28 (`/api/interpret/chat` SSE→JSON 전환 + RecordChat swipe-dismiss 차단 + 진단 로그)
+> 최종 업데이트: 2026-04-30 (Google OAuth 검증 + dev-client 빌드 전환 + RecordChat end-to-end 검증 + 해몽 로딩 UX 개선 + StarParticleLoader 업그레이드)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-04-28)
+## 오늘 세션 요약 (2026-04-30)
+
+### 완료
+1. **Google OAuth 검증 + 흐름 정상화** ⭐ — 어제 미커밋 상태였던 Google 로그인 코드(`signInWithGoogle`, `expo-web-browser`/`expo-linking`, LoginScreen Google 버튼) 시뮬레이터에서 끝까지 검증
+   - Expo Go 환경에서 ASWebAuthenticationSession이 Supabase OAuth 시작 페이지에서 빈 화면으로 멈추는 이슈 발견. iOS 26 시뮬레이터 + `host.exp.Exponent` 환경 + ASWebAuthenticationSession 조합의 알려진 케이스
+   - 진단 로그 (`[google-oauth] redirectTo`/`signInWithOAuth`/`webBrowser result`) 임시 추가 → URL/result type 확인. URL 자체는 정상, result는 `cancel`(callback 못 받음) 패턴
+   - 일반 Safari로 같은 URL 직접 열어보니 정상 → Supabase/Google/네트워크/시뮬레이터 모두 정상, ASWebAuthenticationSession 자체가 첫 navigation을 못 잡는 것으로 좁혀짐
+   - 1차 시도: `preferEphemeralSession: true` 옵션 추가 → 빈 화면 해결됨. 단, 매번 비번/패스키 인증 필요한 부작용 (cookie jar 격리)
+   - 2차 시도(정공): **dev-client 빌드 전환**. `expo-dev-client` 설치 + `npx expo run:ios`로 ios/ 네이티브 폴더 생성 + Pod install + 첫 빌드. dev-client에서 `Linking.createURL`이 `dreamteller://auth-callback`을 일관되게 반환하여 Supabase Allowed Redirect URLs와 매칭
+   - 이후 `preferEphemeralSession` 제거 → ASWebAuthenticationSession이 Safari 쿠키 공유 → 두 번째 로그인부터 "Google로 계속하기" 한 번 탭으로 자동 통과 (사용자 기대 UX 매치). 진단 로그도 모두 제거
+2. **RecordChat → RecordSummary → InterpretDetail end-to-end 재검증** ⭐ — 어제 무료 티어 quota로 step 5에서 막혔던 흐름을 quota 회복 후 한 번에 통과
+   - chat step 1~5 모두 200 OK, finish=STOP, block=None
+   - step 5 응답에서 `next_step=5 complete=True` 정상 (백엔드의 `[RECORD_COMPLETE]` 토큰 처리 동작 확인)
+   - `POST /api/dreams` 201 → `POST /api/interpret/generate` 200 → `GET /api/interpret/{id}` 폴링 12회 404 후 200 OK → InterpretDetail 진입까지 12초 내 완료
+   - 폴링 dedup 정상 (12회 generate POST 모두 success로 흡수, INSERT 1회만 일어남)
+3. **해몽 로딩 UX 개선** — `useInterpret` queryFn이 두 번째 GET에서 404 받으면 throw → `isError=true` → 화면에 "다시 시도" Card 표시. 2초 후 polling에서 또 404 → 또 isError → 깜빡임
+   - **수정**: 첫 GET 404 → `generate()` 호출 후 두 번째 GET이 또 404면 throw 안 하고 `{status: 'processing', dreamId, ...빈 본문}` placeholder 반환. UI는 `isLoading` 분기에서 자연스럽게 별빛 로딩 유지, refetchInterval로 polling 계속 (최대 60초)
+4. **StarParticleLoader 화려화** — 정적 깜빡임 8개 → 비처럼 떨어지는 16개 파티클로 업그레이드
+   - translateY: -8 → 150 (떨어지는 모션) + drift × sin(2πp) (좌우 흔들림) + scale curve(0.55→1.1)
+   - opacity: fade-in (0~18%) → 풀밝기 → fade-out (82%~100%)
+   - 색상 3종 mix (`primaryLight` / `textPrimary` / `info`)
+   - 컨테이너 180 + `overflow: hidden`로 떨어지는 별이 깔끔하게 사라짐, shadow radius 8 / opacity 0.9로 글로우 강화
+
+### 검증 (시뮬레이터 실측)
+- ✅ Google 로그인: 첫 로그인(이메일/비번/패스키/동의) → callback `dreamteller://auth-callback#access_token=...` 수신 → `setSession` → 홈 진입. 로그아웃 후 재로그인 시 한 번 탭으로 자동 통과 확인
+- ✅ RecordChat 5단계 + RecordSummary + Interpret 한 번에 통과 (dream id `e1718141-…`)
+- ✅ 해몽 로딩 placeholder 동작: "다시 시도" 깜빡임 사라짐, 별빛 로딩 유지
+- ⚠️ StarParticleLoader 시각 변경은 사용자 추후 확인 예정
+
+### 환경 변경
+- **Expo Go 사용 중단 → dev-client 빌드** 사용. 이후 시뮬레이터 실행은 `cd app && npx expo run:ios --port 8082 --device "iPhone 16e"` (또는 Metro만 띄우려면 `npx expo start --dev-client --port 8082`)
+- 8081 포트 Docker Desktop 점유 중. Metro는 8082 사용
+- `app/ios/`는 prebuild로 자동 생성, `app/.gitignore`에 `/ios` 등록 (CNG 패턴)
+
+---
+
+## 이전 세션 요약 (2026-04-28)
 
 ### 완료
 1. **`/api/interpret/chat` SSE → JSON 전환** ⭐ — RN fetch가 `response.body.getReader()`를 지원하지 않아 SSE 첫 chunk부터 throw하던 문제 해결
@@ -181,28 +217,58 @@
 
 ## 다음 작업 (우선순위 순)
 
-### [1] Gemini quota 회복 후 RecordChat 5단계 + RecordSummary + Interpret generate 재검증 ⭐
-- 한국 오후 4~5시(PT 자정) 일일 quota 리셋 후 step 5 마지막 응답 → `[RECORD_COMPLETE]` 감지 → RecordSummary 진입 흐름 통과 확인
-- RecordSummary 저장(`POST /api/dreams`) → `interpretService.generate` → polling → InterpretDetail 표시까지 end-to-end 한 번 끝까지 통과
-- 추가로 운영 권장 시점에 Gemini **유료 전환** 검토 (CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙. 입력 $0.30 / 출력 $2.50 per 1M 토큰. AI Studio Billing 연결 + spending cap 화면 확인 — 4/27 cap 0$ 사고 재발 방지)
+### [1] Apple 로그인 추가 ⭐
+- Supabase 콘솔 → Authentication → Providers → Apple Enable + Apple Developer 등록 정보 입력
+- `expo-apple-authentication` 설치 + `app.json` plugin 추가 + dev-client 재빌드
+- `signInWithApple()` 구현 — Apple credential → `supabase.auth.signInWithIdToken({provider: 'apple', token: identityToken, nonce})` 흐름. Login/Signup 화면에 Apple 버튼 추가
+- 시뮬레이터(또는 실기기)에서 첫 로그인 / 두 번째 로그인 / 로그아웃 후 재로그인 흐름 검증
 
-### [2] Apple / Google 소셜 로그인 추가
-- Supabase 콘솔 Provider 설정 + Apple/GCP OAuth 클라이언트
-- `expo-apple-authentication` / Google Sign-In 통합 + `supabase.auth.signInWithIdToken`
+### [2] (선택) Google 로그인을 native SDK로 마이그레이션 — 사용자 기대 UX 한 단계 더
+- 현재는 ASWebAuthenticationSession + Safari 쿠키 공유로 두 번째부터 자동 통과. 첫 한 번은 Google OAuth 웹 페이지 거침
+- 한 번 탭 → 디바이스 Google 계정 시트 → ID token 즉시 수신 흐름을 원하면 `@react-native-google-signin/google-signin` + `signInWithIdToken({provider: 'google', token})` 도입 필요
+- GCP에 iOS OAuth 클라이언트 별도 발급(Bundle ID `com.dreamteller.app`) + Reversed Client ID URL scheme `app.json`에 추가 + dev-client 재빌드
 
-### [3] Email confirm On 케이스 검증 (선택, 운영 직전)
+### [3] Gemini 운영 직전 유료 전환
+- CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙 (무료 티어는 일 20회 한도 + Google이 프롬프트 3년간 열람)
+- AI Studio Billing 연결 + spending cap 화면 확인 (4/27 cap 0$ 사고 재발 방지)
+
+### [4] Email confirm On 케이스 검증 (선택, 운영 직전)
 - Supabase 콘솔에서 confirmation 켜고 새 메일 가입 → "메일 확인 필요" Alert fallback 확인
 
-### [4] Pretendard 폰트 / 에셋
+### [5] Pretendard 폰트 / 에셋
 - 폰트 출처 결정 후 `expo-font` + `useFonts`
 - 아이콘/스플래시 디자인 결정 후 교체
 
-### [5] 기타
+### [6] 기타
 - Husky / Lint-staged (선택)
 
 ---
 
 ## 오류 및 해결 내역
+
+### [2026-04-30] Expo Go에서 Google OAuth 빈 화면 (ASWebAuthenticationSession 첫 navigation 멈춤)
+- **증상**: "Google로 계속하기" 탭 후 브라우저 시트가 떴는데 빈 화면. 주소창은 placeholder만 표시. Metro 로그에 `webBrowser result = {type: 'cancel', url: null}`만 찍힘 (사용자 취소로만 인식)
+- **원인 진단**:
+  - Supabase OAuth 시작 URL 자체는 정상 — `curl -L`로 GET 시 `accounts.google.com`으로 302 redirect 확인
+  - 시뮬레이터의 일반 Safari에 같은 URL을 `xcrun simctl openurl`로 열면 정상으로 Google 로그인 페이지 도달
+  - 즉 Supabase/Google/네트워크/시뮬레이터 모두 정상. ASWebAuthenticationSession이 Expo Go 환경(`host.exp.Exponent` bundleId)에서 첫 navigation 자체를 시작 못 하는 케이스. iOS 18+ 시뮬레이터에서 알려진 ASWebAuthenticationSession 동작 불안정 케이스와 일치
+- **해결**:
+  - 1차(임시): `WebBrowser.openAuthSessionAsync(..., { preferEphemeralSession: true })` 옵션 추가. 빈 화면은 사라졌지만 ephemeral cookie jar라 Safari 세션 공유 안 됨 (매번 비번/패스키)
+  - 2차(정공): **dev-client 빌드 전환**. `expo-dev-client` 설치 + `npx expo run:ios`로 ios/ 네이티브 폴더 생성 + 자체 빌드 + 시뮬레이터 install. dev-client에서 `Linking.createURL`이 `dreamteller://auth-callback`을 일관되게 반환하여 Supabase Allowed Redirect URLs와 매칭되고, ASWebAuthenticationSession도 정상 동작
+  - 빌드 안정 확인 후 `preferEphemeralSession: true` 옵션 제거 → Safari 쿠키 공유 → 두 번째 로그인부터 한 번 탭으로 자동 통과
+- **재발 방지**: 이후 OAuth/딥링크/네이티브 모듈 작업은 Expo Go가 아닌 dev-client 빌드 기반으로 진행. PROGRESS의 "환경 변경" 섹션에 실행 명령 명시. 디버깅 시 진단 로그(redirectTo / signInWithOAuth url / webBrowser result type) 박고 `xcrun simctl openurl`로 일반 Safari와 격리 비교하면 빠르게 좁혀짐
+
+### [2026-04-30] Google 로그인이 매번 비번/패스키 인증 요구
+- **증상**: "Google로 계속하기" 누를 때마다 이메일 입력 → 비번 → 패스키까지 처음부터. 사용자 기대는 "계정 선택 → 동의 → 끝"
+- **원인**: 빈 화면 fix 시도 때 추가한 `preferEphemeralSession: true`가 ASWebAuthenticationSession에 별도 cookie jar를 강제. Safari에 이미 Google에 로그인되어 있어도 그 세션 공유 안 됨
+- **해결**: dev-client 빌드 전환으로 빈 화면 원인이 사라진 후, `preferEphemeralSession: true` 옵션 제거. Safari 쿠키 공유로 두 번째 로그인부터 자동 통과
+- **재발 방지**: OAuth UX 옵션은 trade-off가 명확함. ephemeral=true는 격리되지만 매번 인증, 기본값(false)은 세션 공유. Expo Go 호환을 위해 ephemeral을 켜는 식의 우회 fix는 dev-client 빌드로 해결한 후 즉시 원복
+
+### [2026-04-30] 해몽 로딩 화면에서 "다시 시도" Card 깜빡임
+- **증상**: 해몽 받기 직후 InterpretScreen에서 별빛 로딩과 "다시 시도" Card가 번갈아 깜빡이며 표시
+- **원인**: `useInterpret` queryFn이 `404 → generate() → 두 번째 GET` 시퀀스. 두 번째 GET은 BackgroundTask 진행 중이라 거의 항상 404 → throw → React Query `isError=true`. InterpretScreen은 `interpret.isError && data === undefined`일 때 "다시 시도" Card를 보여줌. refetchInterval이 2초마다 또 polling → 또 404 → 또 isError 반복
+- **해결**: queryFn에서 두 번째 GET이 404일 때 throw 안 하고 `{dreamId, status: 'processing', symbolAnalysis: '', psychologicalMeaning: '', unconsciousMessage: ''}` placeholder 반환. InterpretScreen의 `isLoading` 분기에 `data?.status === 'processing'`이 매치되어 별빛 로딩 유지. `refetchInterval`은 `processing` 상태에서 2초마다 polling 계속 (최대 60초)
+- **재발 방지**: 비동기 파이프라인을 React Query로 다룰 때 "아직 준비 안 됨"은 에러가 아니라 별도 status로 모델링하는 게 깜빡임/오인 에러를 막음. 404 → throw 패턴은 진짜 영구 에러일 때만
 
 ### [2026-04-28] RN fetch가 SSE 스트림 지원 안 함 → 토스트 에러
 - **증상**: RecordChat에서 메시지 보내면 즉시 "연결에 실패했어요" 토스트. 백엔드 로그는 200 OK + Gemini 응답 정상(`chars=109, finish=STOP`)

@@ -1,6 +1,11 @@
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+
 import { mapSupabaseUser, supabase } from './supabase';
 import { request } from './api';
 import type { User } from '@/types/user';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export type AuthProvider = 'apple' | 'google' | 'email';
 
@@ -62,6 +67,53 @@ export const supabaseAuth = {
       user: mapSupabaseUser(data.user),
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
+    };
+  },
+
+  async signInWithGoogle(): Promise<SupabaseSessionResult> {
+    const redirectTo = Linking.createURL('auth-callback');
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error || !data?.url) {
+      throw new Error(readErrorMessage(error, 'Google 로그인 URL을 받지 못했어요'));
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      throw new Error('로그인을 취소했어요');
+    }
+    if (result.type !== 'success' || !result.url) {
+      throw new Error('Google 로그인에 실패했어요');
+    }
+
+    const fragment = result.url.includes('#') ? result.url.split('#')[1] ?? '' : '';
+    const queryString = result.url.includes('?') ? result.url.split('?')[1]?.split('#')[0] ?? '' : '';
+    const params = new URLSearchParams(fragment || queryString);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const oauthError = params.get('error_description') ?? params.get('error');
+    if (oauthError) {
+      throw new Error(decodeURIComponent(oauthError));
+    }
+    if (!accessToken || !refreshToken) {
+      throw new Error('Google 로그인 토큰을 받지 못했어요');
+    }
+
+    const { data: sessionData, error: setError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (setError || !sessionData.session || !sessionData.user) {
+      throw new Error(readErrorMessage(setError, 'Google 세션을 저장하지 못했어요'));
+    }
+
+    return {
+      user: mapSupabaseUser(sessionData.user),
+      accessToken: sessionData.session.access_token,
+      refreshToken: sessionData.session.refresh_token,
     };
   },
 

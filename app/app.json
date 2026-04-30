@@ -3,6 +3,7 @@
     "name": "DreamTeller",
     "slug": "dreamteller",
     "version": "1.0.0",
+    "scheme": "dreamteller",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -30,7 +31,8 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-web-browser"
     ]
   }
 }

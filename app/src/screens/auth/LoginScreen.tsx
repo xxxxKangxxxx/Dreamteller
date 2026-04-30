@@ -31,8 +31,10 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
-  const canSubmit = email.trim().length > 0 && password.length >= 6 && !submitting;
+  const anySubmitting = submitting || googleSubmitting;
+  const canSubmit = email.trim().length > 0 && password.length >= 6 && !anySubmitting;
 
   const handleLogin = async () => {
     if (!canSubmit) return;
@@ -44,6 +46,21 @@ export function LoginScreen() {
       const message = err instanceof Error ? err.message : '로그인에 실패했어요';
       showToast(message, 'error');
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (anySubmitting) return;
+    setGoogleSubmitting(true);
+    try {
+      const result = await supabaseAuth.signInWithGoogle();
+      await login(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Google 로그인에 실패했어요';
+      if (message !== '로그인을 취소했어요') {
+        showToast(message, 'error');
+      }
+      setGoogleSubmitting(false);
     }
   };
 
@@ -72,7 +89,7 @@ export function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
-              editable={!submitting}
+              editable={!anySubmitting}
             />
             <TextInput
               style={styles.input}
@@ -83,7 +100,7 @@ export function LoginScreen() {
               secureTextEntry
               autoCapitalize="none"
               autoComplete="password"
-              editable={!submitting}
+              editable={!anySubmitting}
             />
           </View>
 
@@ -98,11 +115,29 @@ export function LoginScreen() {
               loading={submitting}
               fullWidth
             />
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerLabel}>또는</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Button
+              label="Google로 계속하기"
+              variant="secondary"
+              onPress={() => {
+                void handleGoogleLogin();
+              }}
+              disabled={anySubmitting}
+              loading={googleSubmitting}
+              fullWidth
+            />
+
             <Button
               label="회원가입"
               variant="ghost"
               onPress={() => navigation.navigate('Signup')}
-              disabled={submitting}
+              disabled={anySubmitting}
               fullWidth
             />
           </View>
@@ -151,5 +186,20 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerLabel: {
+    ...textStyles.caption,
+    color: colors.textMuted,
   },
 });
