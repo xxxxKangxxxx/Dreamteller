@@ -217,30 +217,49 @@
 
 ## 다음 작업 (우선순위 순)
 
-### [1] Apple 로그인 추가 ⭐
-- Supabase 콘솔 → Authentication → Providers → Apple Enable + Apple Developer 등록 정보 입력
-- `expo-apple-authentication` 설치 + `app.json` plugin 추가 + dev-client 재빌드
-- `signInWithApple()` 구현 — Apple credential → `supabase.auth.signInWithIdToken({provider: 'apple', token: identityToken, nonce})` 흐름. Login/Signup 화면에 Apple 버튼 추가
-- 시뮬레이터(또는 실기기)에서 첫 로그인 / 두 번째 로그인 / 로그아웃 후 재로그인 흐름 검증
+> 정책: Apple 로그인은 배포 후 추가 예정. native Google Sign-In SDK 마이그레이션은 현 UX(두 번째 로그인부터 한 번 탭 자동 통과)로 충분하다 판단되어 백로그에서 제외 — 추후 불편 시 재논의.
 
-### [2] (선택) Google 로그인을 native SDK로 마이그레이션 — 사용자 기대 UX 한 단계 더
-- 현재는 ASWebAuthenticationSession + Safari 쿠키 공유로 두 번째부터 자동 통과. 첫 한 번은 Google OAuth 웹 페이지 거침
-- 한 번 탭 → 디바이스 Google 계정 시트 → ID token 즉시 수신 흐름을 원하면 `@react-native-google-signin/google-signin` + `signInWithIdToken({provider: 'google', token})` 도입 필요
-- GCP에 iOS OAuth 클라이언트 별도 발급(Bundle ID `com.dreamteller.app`) + Reversed Client ID URL scheme `app.json`에 추가 + dev-client 재빌드
+### 🚀 배포 전
 
-### [3] Gemini 운영 직전 유료 전환
-- CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙 (무료 티어는 일 20회 한도 + Google이 프롬프트 3년간 열람)
+#### [1] 남은 stub 화면 처리 ⭐
+- **OnboardingScreen** — 1~3 페이지 슬라이드(실 구현 권장)
+- **DreamCardScreen** — 해몽 카드 이미지 저장/공유. InterpretScreen "해몽 카드로 저장" 버튼이 이리로 연결됨. 배포 전 구현 또는 버튼 임시 숨김
+- **CharacterDetailScreen** — 꿈 캐릭터 상세 (Phase 2 기능이면 진입점 자체 숨김)
+
+#### [2] 디자인 에셋 + Pretendard 폰트
+- 앱 아이콘 (1024×1024) + 스플래시 이미지 (현재 placeholder 교체)
+- Pretendard `expo-font` + `useFonts` 도입, 로딩 동안 Splash 유지
+
+#### [3] 이용약관 + 개인정보처리방침 (앱스토어 심사 필수)
+- Settings에 링크 항목 추가 → 외부 웹뷰 또는 호스팅 페이지
+- 방침에 **Gemini로 꿈 데이터 전송 사실 명시** (CLAUDE.md Gemini 운영 주의사항과 연결)
+
+#### [4] Gemini 운영 직전 유료 전환
+- CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙 (무료 티어 일 20회 한도 + 프롬프트 3년 Google 열람)
 - AI Studio Billing 연결 + spending cap 화면 확인 (4/27 cap 0$ 사고 재발 방지)
 
-### [4] Email confirm On 케이스 검증 (선택, 운영 직전)
-- Supabase 콘솔에서 confirmation 켜고 새 메일 가입 → "메일 확인 필요" Alert fallback 확인
+#### [5] Email confirm On 케이스 검증
+- Supabase 콘솔에서 confirmation 켜고 새 메일 가입 → "메일 확인 필요" Alert fallback 동작 확인
 
-### [5] Pretendard 폰트 / 에셋
-- 폰트 출처 결정 후 `expo-font` + `useFonts`
-- 아이콘/스플래시 디자인 결정 후 교체
+#### [6] EAS Build + TestFlight 베타
+- `eas.json` 셋업, Apple Developer 계정 연결 + 인증서 발급
+- `eas build --platform ios --profile preview` → IPA → TestFlight 외부 테스트
+- 본인 + 1~2명 베타 테스터로 운영 빌드 안정성 확인
 
-### [6] 기타
-- Husky / Lint-staged (선택)
+### 📱 배포 후 / 선택
+
+#### [7] Apple 로그인 추가
+- Supabase Apple Provider + Apple Developer 등록
+- `expo-apple-authentication` + `signInWithIdToken({provider: 'apple', token, nonce})`
+- dev-client 재빌드 후 검증
+
+#### [8] Crash reporting 도입
+- Sentry / Bugsnag — 운영 시 에러 감지
+
+#### [9] AI 일러스트 / 음성 입력 (Phase 2+)
+- CLAUDE.md "MVP 이후 별도 Phase" 규칙대로 배포 후 별도 Phase
+
+#### [10] Husky / Lint-staged (선택, 협업 확장 시)
 
 ---
 
