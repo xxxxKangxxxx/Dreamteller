@@ -10,10 +10,13 @@ const MAX_POLL_DURATION_MS = 60_000;
 
 const buildProcessingPlaceholder = (dreamId: string): Interpretation => ({
   dreamId,
-  symbolAnalysis: '',
-  psychologicalMeaning: '',
-  unconsciousMessage: '',
   status: 'processing',
+  symbolAnalysis: { headline: '', detail: '', keySymbols: [] },
+  psychologicalMeaning: { headline: '', detail: '', keySymbols: [], perspective: '' },
+  unconsciousMessage: { headline: '', detail: '', keySymbols: [], affirmation: '' },
+  symbolAnalysisText: '',
+  psychologicalMeaningText: '',
+  unconsciousMessageText: '',
 });
 
 export function useInterpret(dreamId: string | undefined) {

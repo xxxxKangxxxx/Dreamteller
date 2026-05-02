@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useMemo } from 'react';
 import {
   Modal,
@@ -13,13 +14,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmotionTag } from '@/components/dream/EmotionTag';
 import { InterpretCard } from '@/components/dream/InterpretCard';
 import { StarParticleLoader } from '@/components/dream/StarParticleLoader';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DREAM_CARD_STYLE } from '@/constants/cardStyles';
 import { colors } from '@/constants/colors';
-import { EMOTION_META } from '@/constants/emotion';
 import { FALLBACK_MESSAGES } from '@/constants/prompts';
 import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
@@ -58,6 +59,7 @@ export function InterpretScreen() {
 
   const dreamDetail = useDreamDetail(dreamId);
   const interpret = useInterpret(isFreeOver ? undefined : dreamId);
+  const cardTokens = DREAM_CARD_STYLE;
 
   const dream = dreamDetail.data;
 
@@ -69,9 +71,23 @@ export function InterpretScreen() {
   const handleShare = useCallback(async () => {
     if (!dream || !interpret.data || interpret.data.status !== 'completed') return;
     try {
-      await Share.share({
-        message: `${dream.title}\n\n${interpret.data.symbolAnalysis}\n\n${interpret.data.psychologicalMeaning}\n\n${interpret.data.unconsciousMessage}`,
-      });
+      const d = interpret.data;
+      const message = [
+        dream.title,
+        '',
+        `[상징 분석] ${d.symbolAnalysis.headline}`,
+        d.symbolAnalysisText,
+        '',
+        `[심리적 의미] ${d.psychologicalMeaning.headline}`,
+        d.psychologicalMeaningText,
+        '',
+        `[무의식 메시지] ${d.unconsciousMessage.headline}`,
+        d.unconsciousMessageText,
+        d.unconsciousMessage.affirmation ? `\n— ${d.unconsciousMessage.affirmation}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      await Share.share({ message });
     } catch {
       showToast(FALLBACK_MESSAGES.interpretError, 'error');
     }
@@ -88,6 +104,13 @@ export function InterpretScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <LinearGradient
+        colors={cardTokens.background}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={styles.header}>
         {navigation.canGoBack() ? (
           <Pressable
@@ -106,6 +129,7 @@ export function InterpretScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+
         {!dreamId && !dreamsQuery.isLoading ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>아직 기록된 꿈이 없어요</Text>
@@ -118,11 +142,7 @@ export function InterpretScreen() {
             <Text style={styles.dreamTitle}>{dream.title}</Text>
             <View style={styles.metaRow}>
               <Text style={styles.metaDate}>{formatDateDot(dream.recordedAt)}</Text>
-              <Badge
-                variant="emotion"
-                emotion={dream.emotion}
-                label={EMOTION_META[dream.emotion].label}
-              />
+              <EmotionTag emotion={dream.emotion} />
             </View>
           </View>
         ) : null}
@@ -149,9 +169,24 @@ export function InterpretScreen() {
 
         {interpret.data?.status === 'completed' ? (
           <View style={styles.cardStack}>
-            <InterpretCard kind="symbol" body={interpret.data.symbolAnalysis} />
-            <InterpretCard kind="psychological" body={interpret.data.psychologicalMeaning} />
-            <InterpretCard kind="unconscious" body={interpret.data.unconsciousMessage} />
+            <InterpretCard
+              kind="symbol"
+              headline={interpret.data.symbolAnalysis.headline}
+              detail={interpret.data.symbolAnalysisText}
+              keySymbols={interpret.data.symbolAnalysis.keySymbols}
+            />
+            <InterpretCard
+              kind="psychological"
+              headline={interpret.data.psychologicalMeaning.headline}
+              detail={interpret.data.psychologicalMeaningText}
+              perspective={interpret.data.psychologicalMeaning.perspective}
+            />
+            <InterpretCard
+              kind="unconscious"
+              headline={interpret.data.unconsciousMessage.headline}
+              detail={interpret.data.unconsciousMessageText}
+              affirmation={interpret.data.unconsciousMessage.affirmation}
+            />
           </View>
         ) : null}
 

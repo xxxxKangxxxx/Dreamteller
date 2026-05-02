@@ -49,7 +49,7 @@ export default function App() {
         <NavigationContainer theme={navigationTheme}>
           <StatusBar style="light" />
           <RootNavigator />
-          <ToastContainer />
+          <ToastContainer topOffset={48} />
         </NavigationContainer>
       </SafeAreaProvider>
     </QueryClientProvider>

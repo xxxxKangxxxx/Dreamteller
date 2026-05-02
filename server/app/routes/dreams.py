@@ -6,6 +6,7 @@ from app.deps.auth import get_current_user_id
 from app.schemas.dream import CreateDreamPayload, UpdateDreamPayload
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
+from app.utils.interpretation import serialize_interpretation
 
 router = APIRouter()
 
@@ -108,16 +109,7 @@ def get_dream(dream_id: str, user_id: UserId) -> dict[str, Any]:
     row = res.data[0]
 
     ires = sb.table("interpretations").select("*").eq("dream_id", dream_id).limit(1).execute()
-    interp = None
-    if ires.data:
-        i = ires.data[0]
-        interp = {
-            "dreamId": str(i["dream_id"]),
-            "symbolAnalysis": i.get("symbol_analysis") or "",
-            "psychologicalMeaning": i.get("psychological_meaning") or "",
-            "unconsciousMessage": i.get("unconscious_message") or "",
-            "status": "completed",
-        }
+    interp = serialize_interpretation(ires.data[0]) if ires.data else None
 
     return success(
         {

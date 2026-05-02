@@ -24,12 +24,40 @@ export interface Dream {
   recordedAt: string;
 }
 
+export interface KeySymbol {
+  symbol: string;
+  meaning: string;
+}
+
+export interface SymbolAnalysisPart {
+  headline: string;
+  detail: string;
+  keySymbols: KeySymbol[];
+}
+
+export interface PsychologicalPart {
+  headline: string;
+  detail: string;
+  perspective: string;
+  keySymbols: KeySymbol[];
+}
+
+export interface UnconsciousPart {
+  headline: string;
+  detail: string;
+  affirmation: string;
+  keySymbols: KeySymbol[];
+}
+
 export interface Interpretation {
   dreamId: string;
-  symbolAnalysis: string;
-  psychologicalMeaning: string;
-  unconsciousMessage: string;
   status: 'processing' | 'completed' | 'failed';
+  symbolAnalysis: SymbolAnalysisPart;
+  psychologicalMeaning: PsychologicalPart;
+  unconsciousMessage: UnconsciousPart;
+  symbolAnalysisText: string;
+  psychologicalMeaningText: string;
+  unconsciousMessageText: string;
 }
 
 export interface ChatMessage {

@@ -119,13 +119,13 @@ interface RecordSession {
 
 **레이아웃 (스크롤)**
 1. ~~드림 일러스트 이미지~~ → **MVP 이후 추가 예정** (현재는 감정/유형 기반 추상 그래픽으로 대체)
-2. 꿈 제목 + 날짜 + 감정 배지
-3. 해몽 3파트 카드:
-   - 🔵 상징 분석
-   - 🟣 심리적 의미
-   - ✨ 무의식 메시지
-4. "해몽 카드로 저장" 버튼
-5. "공유하기" 버튼
+2. 꿈 제목 + 날짜 + 감정 태그(`EmotionTag` — 컬러 dot + 라벨)
+3. 해몽 3파트 카드 (구조화 응답 v2):
+   - 01 SYMBOL · 상징 분석 — headline + keySymbols 칩 + detail(단락 분리)
+   - 02 PSYCHOLOGY · 심리적 의미 — headline + perspective pill + detail
+   - 03 UNCONSCIOUS · 무의식 메시지 — headline + detail + `NOTE TO SELF` affirmation 박스
+4. "해몽 카드로 저장" 버튼 → DreamCardScreen
+5. "공유하기" 버튼 → 시스템 Share (텍스트)
 
 **상태**
 ```typescript
@@ -141,9 +141,10 @@ const { data: interpretation, isLoading } = useInterpret(dreamId)
 
 #### DreamCardScreen
 - 해몽 내용을 감성 카드 이미지로 렌더링 (캡처 후 저장/공유)
-- 카드 스타일 3종 선택 가능 (Galaxy / Mist / Neon)
-- react-native-view-shot으로 이미지 캡처
-- 공유: iOS Share Sheet 활용
+- 카드 스타일: **Galaxy 단일** (보라/딥블루 그라데이션). Mist/Neon 후보는 검토 후 제거 — 단일 톤이 브랜드 일관성에 맞음
+- 캡처 영역: 날짜 / 꿈 제목 / 감정 태그 / 해몽 3섹션(인덱스 라벨 + 헤드라인 + 본문) / `NOTE TO SELF` affirmation 박스 / `DREAMTELLER` 워터마크(FREE 플랜은 `FREE` 라벨 동반)
+- `react-native-view-shot`으로 PNG 캡처 → `expo-media-library`로 사진 앱 저장 / `expo-sharing`으로 iOS Share Sheet 공유
+- 사진 앱 저장 시 `MediaLibrary.requestPermissionsAsync()` 권한 흐름
 
 ---
 

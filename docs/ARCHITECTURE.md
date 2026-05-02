@@ -89,6 +89,8 @@ app/
 │   │   ├── dream/
 │   │   │   ├── DreamCard.tsx
 │   │   │   ├── InterpretCard.tsx
+│   │   │   ├── EmotionTag.tsx          # 컬러 dot + 라벨 (이모지 없음)
+│   │   │   ├── StarParticleLoader.tsx
 │   │   │   ├── ChatBubble.tsx
 │   │   │   └── TagChip.tsx
 │   │   └── layout/
@@ -202,14 +204,16 @@ create table public.dreams (
   created_at      timestamptz default now()
 );
 
--- interpretations
+-- interpretations (v2: payload JSONB로 구조화. 평문 3개 컬럼은 호환용 fallback 유지)
 create table public.interpretations (
   id                    uuid primary key default gen_random_uuid(),
   dream_id              uuid references public.dreams(id) on delete cascade unique,
-  symbol_analysis       text,
-  psychological_meaning text,
-  unconscious_message   text,
-  -- soul_type 제거: 자유 해석 방식으로 변경
+  symbol_analysis       text,                 -- legacy fallback (payload.symbolAnalysis.detail와 동일)
+  psychological_meaning text,                 -- legacy fallback
+  unconscious_message   text,                 -- legacy fallback
+  payload               jsonb,                -- v2: { symbolAnalysis:{headline,keySymbols[],detail},
+                                              --       psychologicalMeaning:{headline,perspective,detail},
+                                              --       unconsciousMessage:{headline,detail,affirmation} }
   created_at            timestamptz default now()
 );
 

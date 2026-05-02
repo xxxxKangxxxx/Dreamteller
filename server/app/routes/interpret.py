@@ -9,6 +9,7 @@ from app.schemas.dream import ChatMessage
 from app.services.gemini_service import generate_interpretation, stream_chat
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
+from app.utils.interpretation import serialize_interpretation
 
 logger = logging.getLogger("interpret")
 router = APIRouter()
@@ -59,6 +60,15 @@ def chat(payload: ChatPayload, _user_id: UserId) -> dict[str, Any]:
     return success({"text": text, "nextStep": next_step, "complete": complete})
 
 
+def _payload_for_db(result: dict[str, Any]) -> dict[str, Any]:
+    """gemini_service 결과에서 DB에 저장할 구조화 payload만 추린다."""
+    return {
+        "symbolAnalysis": result.get("symbolAnalysis") or {},
+        "psychologicalMeaning": result.get("psychologicalMeaning") or {},
+        "unconsciousMessage": result.get("unconsciousMessage") or {},
+    }
+
+
 def _run_interpretation(dream_id: str, raw_content: str) -> None:
     try:
         result = generate_interpretation(raw_content)
@@ -67,9 +77,10 @@ def _run_interpretation(dream_id: str, raw_content: str) -> None:
             sb.table("interpretations").insert(
                 {
                     "dream_id": dream_id,
-                    "symbol_analysis": result["symbolAnalysis"],
-                    "psychological_meaning": result["psychologicalMeaning"],
-                    "unconscious_message": result["unconsciousMessage"],
+                    "symbol_analysis": result.get("symbolAnalysisText", ""),
+                    "psychological_meaning": result.get("psychologicalMeaningText", ""),
+                    "unconscious_message": result.get("unconsciousMessageText", ""),
+                    "payload": _payload_for_db(result),
                 }
             ).execute()
         except Exception as exc:
@@ -161,13 +172,4 @@ def get_interpretation(dream_id: str, user_id: UserId) -> dict[str, Any]:
     if not res.data:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="INTERPRETATION_NOT_FOUND")
 
-    i = res.data[0]
-    return success(
-        {
-            "dreamId": str(i["dream_id"]),
-            "symbolAnalysis": i.get("symbol_analysis") or "",
-            "psychologicalMeaning": i.get("psychological_meaning") or "",
-            "unconsciousMessage": i.get("unconscious_message") or "",
-            "status": "completed",
-        }
-    )
+    return success(serialize_interpretation(res.data[0]))

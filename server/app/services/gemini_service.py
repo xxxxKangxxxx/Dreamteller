@@ -3,6 +3,7 @@ import logging
 import time
 from collections.abc import Iterator
 from functools import lru_cache
+from typing import Any
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -133,12 +134,91 @@ INTERPRET_USER_TEMPLATE = """다음 꿈을 3가지 관점으로 해석해주세�
 꿈 내용:
 {dream_content}
 
-JSON 형식으로 응답하세요. 각 항목 200~350자:
+JSON 형식으로 응답하세요. 모든 텍스트는 한국어. 형식을 정확히 지키세요.
 {{
-  "symbolAnalysis": "꿈에 등장한 장소, 인물, 사물의 상징적 의미 분석. 구체적인 심볼을 언급하며 설명.",
-  "psychologicalMeaning": "융 심리학 관점에서의 해석. 무의식, 그림자, 아니마/아니무스 개념 등 적절히 활용.",
-  "unconsciousMessage": "이 꿈이 당신에게 전하는 메시지. 현재 상황이나 감정에 연결하여 따뜻하게."
-}}"""
+  "symbolAnalysis": {{
+    "headline": "한 줄 요약 (20~40자, 명사형/평서문). 카드 헤드라인으로 사용됨.",
+    "keySymbols": [
+      {{"symbol": "꿈에 나온 핵심 심볼(2~6자)", "meaning": "그 심볼의 의미(15~30자)"}}
+    ],
+    "detail": "꿈에 등장한 장소·인물·사물의 상징적 의미를 부드럽게 풀어 쓴 본문 (180~260자, 따뜻한 2인칭)."
+  }},
+  "psychologicalMeaning": {{
+    "headline": "한 줄 요약 (20~40자).",
+    "perspective": "관점 라벨 1개 (예: '융 심리학', '현대 심리치료', '내면 탐구' 중 적절한 것).",
+    "detail": "융 심리학/현대 심리치료 관점의 해석 본문 (180~260자, 무의식·그림자·자기 같은 개념을 쉬운 말로)."
+  }},
+  "unconsciousMessage": {{
+    "headline": "한 줄 요약 (20~40자).",
+    "detail": "이 꿈이 당신에게 전하는 메시지 본문 (180~260자, 현재 상황·감정에 연결하여 따뜻하게).",
+    "affirmation": "오늘 마음에 새길 한 문장 (20~40자, 격려/위로조)."
+  }}
+}}
+
+필수:
+- keySymbols는 2~4개. symbol과 meaning 둘 다 빈 문자열 금지.
+- headline / affirmation은 마침표로 끝나지 않아도 됨. 이모지는 넣지 말 것.
+- detail은 줄바꿈 없이 자연스러운 한 단락."""
+
+
+def _coerce_part(value: Any) -> dict[str, Any]:
+    """payload 한 파트를 안전하게 dict로 변환. 문자열로 들어오면 detail로 흡수."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        return {"detail": value}
+    return {}
+
+
+def _normalize_interpretation_payload(data: dict[str, Any]) -> dict[str, Any]:
+    """Gemini가 돌려준 payload를 우리 스키마에 맞게 정규화 + flat 호환 필드 생성."""
+    symbol = _coerce_part(data.get("symbolAnalysis"))
+    psych = _coerce_part(data.get("psychologicalMeaning"))
+    unconscious = _coerce_part(data.get("unconsciousMessage"))
+
+    raw_symbols = symbol.get("keySymbols") or []
+    key_symbols: list[dict[str, str]] = []
+    if isinstance(raw_symbols, list):
+        for item in raw_symbols:
+            if isinstance(item, dict):
+                s = str(item.get("symbol") or "").strip()
+                m = str(item.get("meaning") or "").strip()
+                if s and m:
+                    key_symbols.append({"symbol": s, "meaning": m})
+
+    structured = {
+        "symbolAnalysis": {
+            "headline": str(symbol.get("headline") or "").strip(),
+            "keySymbols": key_symbols,
+            "detail": str(symbol.get("detail") or "").strip(),
+        },
+        "psychologicalMeaning": {
+            "headline": str(psych.get("headline") or "").strip(),
+            "perspective": str(psych.get("perspective") or "").strip(),
+            "detail": str(psych.get("detail") or "").strip(),
+        },
+        "unconsciousMessage": {
+            "headline": str(unconscious.get("headline") or "").strip(),
+            "detail": str(unconscious.get("detail") or "").strip(),
+            "affirmation": str(unconscious.get("affirmation") or "").strip(),
+        },
+    }
+
+    flat_symbol = structured["symbolAnalysis"]["detail"] or structured["symbolAnalysis"]["headline"]
+    flat_psych = structured["psychologicalMeaning"]["detail"] or structured["psychologicalMeaning"][
+        "headline"
+    ]
+    flat_unconscious = (
+        structured["unconsciousMessage"]["detail"]
+        or structured["unconsciousMessage"]["headline"]
+    )
+
+    return {
+        **structured,
+        "symbolAnalysisText": flat_symbol,
+        "psychologicalMeaningText": flat_psych,
+        "unconsciousMessageText": flat_unconscious,
+    }
 
 
 def generate_interpretation(dream_content: str) -> dict:
@@ -163,12 +243,16 @@ def generate_interpretation(dream_content: str) -> dict:
                 ),
             )
             text = response.text or "{}"
-            data = json.loads(text)
-            return {
-                "symbolAnalysis": data.get("symbolAnalysis", ""),
-                "psychologicalMeaning": data.get("psychologicalMeaning", ""),
-                "unconsciousMessage": data.get("unconsciousMessage", ""),
-            }
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                logger.warning("interpret JSON parse failed, falling back to plain text")
+                data = {
+                    "symbolAnalysis": text,
+                    "psychologicalMeaning": "",
+                    "unconsciousMessage": "",
+                }
+            return _normalize_interpretation_payload(data)
         except genai_errors.ServerError as exc:
             last_exc = exc
             if attempt < MAX_RETRIES - 1 and "UNAVAILABLE" in str(exc):

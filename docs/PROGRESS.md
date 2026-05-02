@@ -1,11 +1,59 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-04-30 (Google OAuth 검증 + dev-client 빌드 전환 + RecordChat end-to-end 검증 + 해몽 로딩 UX 개선 + StarParticleLoader 업그레이드 + OnboardingScreen 실 구현)
+> 최종 업데이트: 2026-05-02 (해몽 응답 구조화 + InterpretCard 재설계 + DreamCardScreen 실 구현 + 토스트 위치 정리)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-04-30)
+## 오늘 세션 요약 (2026-05-02)
+
+### 완료
+1. **해몽 응답 구조화 (백엔드 v2)** ⭐ — 평문 3개(symbolAnalysis/psychologicalMeaning/unconsciousMessage) → 풍부한 JSON 객체로
+   - 각 파트: `{headline, detail, ...}` + symbol에는 `keySymbols[{symbol, meaning}]`, psychological에는 `perspective`, unconscious에는 `affirmation`
+   - 마이그레이션 `002_interpretations_payload.sql` — `interpretations.payload jsonb` 컬럼 추가 (Supabase에서 적용 완료). 기존 평문 3개 컬럼은 호환용 fallback으로 유지
+   - `app/services/gemini_service.py` — 새 프롬프트(v2) + JSON 정규화(`_normalize_interpretation_payload`) + JSON 파싱 실패 시 평문으로 흡수하는 fallback
+   - `app/utils/interpretation.py` 신설 — DB row(payload 우선, 없으면 평문) → 클라이언트 응답 직렬화 단일 경로. interpret.py / dreams.py 둘 다 사용
+   - `docs/PROMPT_GUIDE.md` 섹션 2 v2 형식으로 갱신 (하드코딩 금지 규칙 준수)
+2. **InterpretCard 재설계 (에디토리얼 톤)** ⭐ — "AI가 쓴 글 그대로 붙여넣기" 느낌 제거
+   - 헤더: 인덱스 번호(01/02/03) + 영문 라벨(SYMBOL/PSYCHOLOGY/UNCONSCIOUS) + 한국어 보조 라벨 + perspective pill(있을 때만)
+   - 헤드라인(20~40자) — heading3 + letter-spacing 조정
+   - 키 심볼 태그 — 라운드 보더 + 컬러 dot + symbol·meaning 한 줄
+   - 본문 — `utils/text.ts` `splitIntoParagraphs`로 마침표/물음표/느낌표 기준 두 문장씩 단락 분리. line-height 25
+   - affirmation — 얇은 보더 단일 박스 (`NOTE TO SELF` 라벨 + 한 줄 메시지)
+   - 좌측 진한 액센트 띠는 사용자 피드백으로 제거 → 카드 외곽선만 균일한 선
+3. **카드 스타일 토글 시도 → 단일 Galaxy로 정착**
+   - 1차: Galaxy/Mist/Neon 3종 + AsyncStorage 영속 토글 (`CardStyleToggle.tsx`, `useDreamCardStyle.ts`) 구현
+   - 2차: 사용자 결정으로 Mist/Neon 제거 → 단일 `DREAM_CARD_STYLE` (Galaxy 토큰만 export)
+   - 토글 컴포넌트/훅 파일 + AsyncStorage 영속화 코드 정리, navigation `DreamCard` 라우트의 `styleId?` 파라미터도 제거
+4. **DreamCardScreen 실 구현** ⭐ (Placeholder → 캡처+저장+공유)
+   - 패키지: `expo-linear-gradient` + `react-native-view-shot` + `expo-sharing` + `expo-media-library` (4개 native module 추가 → dev-client 재빌드 1회)
+   - `app.json`에 `expo-media-library` 플러그인 등록 (한국어 사진 권한 메시지: `photosPermission`/`savePhotosPermission`)
+   - 캡처 영역: 날짜 + 꿈 제목 + 감정 태그 + 3섹션(인덱스 라벨 + 헤드라인 + 본문 단락) + affirmation 박스 + `DREAMTELLER` 워터마크 (FREE 플랜 표시)
+   - 저장: `MediaLibrary.requestPermissionsAsync` → `saveToLibraryAsync` → 토스트
+   - 공유: `Sharing.shareAsync(uri, {mimeType: 'image/png'})` → iOS Share Sheet
+5. **세련화 패스 — 이모지 제거 + 본문 가독성**
+   - InterpretCard 헤더 이모지 🔮/🧠/✨ 제거 → 인덱스 라벨로 대체
+   - DreamCardScreen 워터마크 🌙 제거, 감정 pill의 이모지 제거 → `EmotionTag` 신규 컴포넌트(컬러 dot + 라벨)로 InterpretScreen/DreamCardScreen에 공통 사용
+   - 카드 스타일 토글의 🌌/🌫️/⚡ 이모지도 제거되었다가 토글 자체가 사라짐
+6. **토스트 위치 정리** — App.tsx 글로벌 `<ToastContainer />`에 `topOffset={48}` 부여 → 모든 헤더(48px) 아래에 일관되게 표시. RecordChatScreen은 modal이라 별도 ToastContainer 유지
+
+### 검증 (시뮬레이터 실측)
+- ✅ 새 꿈 1건 기록 → RecordChat 5단계 → RecordSummary → 해몽 받기 → InterpretScreen에서 새 구조화 카드 표시 (헤드라인/심볼 칩/perspective pill/affirmation 모두 채워짐)
+- ✅ 기존 dream("구름 위에서 날다")은 평문 fallback으로 정상 표시 (headline/symbols/affirmation은 비어 있고 본문만, `splitIntoParagraphs`로 자동 단락 분리되어 가독성 개선)
+- ✅ DreamCardScreen 진입 → 미리보기 → "사진 앱에 저장" → 권한 Alert → 저장 토스트(헤더 아래 정상 표시)
+- ✅ 공유 버튼 → iOS Share Sheet 표시 (단, 시뮬레이터 한계로 AirDrop/메시지 항목은 누락 — 실기기에서 정상)
+
+### 환경 변경
+- 4개 native module 추가로 dev-client 재빌드 1회 (`npx expo prebuild --platform ios` → `pod install` (98 deps) → `npx expo run:ios --port 8082 --device "iPhone 16e"`)
+- 기존 처럼 `cd app && npx expo run:ios --port 8082 --device "iPhone 16e"`로 시뮬레이터 기동
+- 백엔드는 `--reload` 모드라 새 코드 자동 반영, Supabase migration 002 적용 완료
+
+### 직전 차단점
+- 없음 — Step B(새 꿈 생성)/Step C(저장/공유) 모두 통과
+
+---
+
+## 이전 세션 요약 (2026-04-30)
 
 ### 완료
 0. **OnboardingScreen 실 구현** — Placeholder → SPEC 명세 그대로 3단계 슬라이드
@@ -231,8 +279,8 @@
 
 #### [1] 남은 stub 화면 처리 ⭐
 - ✅ **OnboardingScreen** — 2026-04-30 실 구현 완료 (3단계 슬라이드 + dot indicator + 마지막 페이지 로그인/회원가입)
-- **DreamCardScreen** — 해몽 카드 이미지 저장/공유. InterpretScreen "해몽 카드로 저장" 버튼이 이리로 연결됨. `react-native-view-shot` 추가 + Galaxy/Mist/Neon 카드 스타일 3종 + iOS Share Sheet
-- **CharacterDetailScreen** — 진입점 자체가 ArchiveScreen에 미연결 (등장인물/장소/테마 탭은 캐릭터 추출 AI 파이프라인 필요 → 사실상 Phase 2 범위). 라우트만 유지하고 화면은 stub 유지 결정. ArchiveScreen 캐릭터 탭 구현 시 본격 구현
+- ✅ **DreamCardScreen** — 2026-05-02 실 구현 완료 (해몽 응답 구조화 + InterpretCard 재설계 + Galaxy 단일 스타일 + 캡처/사진 저장/Share Sheet)
+- **CharacterDetailScreen** — Phase 2 보류 결정. ArchiveScreen 캐릭터 탭 + AI 캐릭터 추출 파이프라인이 같이 도입될 때 본격 구현 (Phase 2: AI 일러스트 + 캐릭터 추출 묶음)
 
 #### [2] 디자인 에셋 + Pretendard 폰트
 - 앱 아이콘 (1024×1024) + 스플래시 이미지 (현재 placeholder 교체)
