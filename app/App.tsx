@@ -1,5 +1,7 @@
 import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +11,8 @@ import { colors } from '@/constants/colors';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { setUnauthorizedHandler } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const navigationTheme: Theme = {
   ...DarkTheme,
@@ -35,6 +39,13 @@ const queryClient = new QueryClient({
 export default function App() {
   const hydrate = useAuthStore((s) => s.hydrate);
 
+  const [fontsLoaded] = useFonts({
+    'Pretendard-Regular': require('./assets/fonts/Pretendard-Regular.otf'),
+    'Pretendard-Medium': require('./assets/fonts/Pretendard-Medium.otf'),
+    'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.otf'),
+    'Pretendard-Bold': require('./assets/fonts/Pretendard-Bold.otf'),
+  });
+
   useEffect(() => {
     void hydrate();
     setUnauthorizedHandler(() => {
@@ -42,6 +53,16 @@ export default function App() {
     });
     return () => setUnauthorizedHandler(null);
   }, [hydrate]);
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      void SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
