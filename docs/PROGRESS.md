@@ -1,11 +1,148 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-05-02 (해몽 응답 구조화 + InterpretCard 재설계 + DreamCardScreen 실 구현 + 토스트 위치 정리)
+> 최종 업데이트: 2026-05-22 (Gemini paid tier + EAS Build 셋업 + AWS 통합 인프라 트랙 확정)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-05-02)
+## 오늘 세션 요약 (2026-05-22)
+
+### 완료
+1. **Gemini API paid tier 전환** ⭐ — 무료 티어에서 paid (Tier 1)로 전환 완료
+   - AI Studio Billing 연결 + 결제 수단 등록 + Plan: Paid 활성화 (AI Studio "Tier 1" 라벨로 확인)
+   - **이중 spending cap 설정** (무료 티어 일 20회 + 4/27 cap $0 사고 재발 방지):
+     - Cloud Billing 예산 알림: ₩10,000/월 (DreamTeller 프로젝트 한정, 50%/90%/100% 알림)
+     - AI Studio 자체 월 지출 한도: ₩15,000 (실제 차단 가능)
+   - **API key는 그대로 사용** — 프로젝트의 plan만 paid로 바뀌는 구조라 `server/.env` 변경 불필요
+   - 효과: 무료 티어 프롬프트 3년 Google 열람 위험 해소 + RPM/RPD 한도 대폭 완화 + 503 UNAVAILABLE 빈도 감소
+2. **End-to-end 검증** ⭐ — 로그인 → 홈 → RecordChat 5단계 → RecordSummary → 해몽 generate → InterpretScreen까지 한 번에 통과
+   - dev-client 재빌드 필요 (시뮬레이터 데이터 wipe 후 첫 부팅) — `npx expo run:ios --port 8082 --device "iPhone 17 Pro"`로 빌드 성공
+   - RecordChat 5단계 모두 paid tier 정상 응답 (4/27/4/28에 step 5에서 quota 막혔던 흐름 통과)
+   - 해몽 generate ~1분 내 완료, v2 구조화 응답 정상 (headline + keySymbols 4개 + perspective "융 심리학" pill + splitIntoParagraphs 단락 본문)
+   - 꿈 내용("학교/고등학교 친구/닫힌 문/좀비 선생님")에 깊이 있는 한국어 해석 — 품질 양호
+
+### 결정 사항
+- **모델 선택**: Gemini 2.5 Flash 유지 (Claude/GPT 대비 가성비 압도적, 베타 50명 기준 월 $7 수준)
+- **품질 전환 트리거**: 베타 사용자 피드백에서 "해몽 평이/감성 부족" 의견 다수 시 Claude Haiku로 A/B 테스트 검토 (gemini_service.py만 교체 가능한 구조)
+- **개발 환경**: Confirm email OFF로 다시 원복했었으나, 이번 검증은 기존 계정으로 로그인했어서 영향 없음
+
+### 완료 (이어서)
+3. **EAS Build 사전 셋업** ⭐ — TestFlight 베타 배포 인프라 1차 구성
+   - `eas-cli` 19.0.8 글로벌 설치 + Expo 로그인 (`dudah0719`, kang071911@gmail.com)
+   - `eas init` → EAS 프로젝트 등록 (`@dudah0719/dreamteller`, ID `fb74201f-a835-4375-9259-b3b81dd3e4ac`)
+   - `app.json`에 `extra.eas.projectId` + `owner` 자동 추가
+   - `eas build:configure` → `eas.json` 생성 (development/preview/production 3 프로파일, 표준 템플릿)
+   - EAS 대시보드: https://expo.dev/accounts/dudah0719/projects/dreamteller
+4. **Apple Developer 인증서 + Provisioning Profile 자동 발급**
+   - Apple ID `dudah0719@naver.com` + 2FA로 EAS에 Apple 계정 연결
+   - Team: `yeongmo kang (Y99467L298)` (Individual)
+   - Bundle ID `com.dreamteller.app` Apple Developer Portal에 자동 등록 + Push Notifications capability 활성화
+   - **Distribution Certificate** 자동 생성 (만료 2027-05-22)
+   - **Provisioning Profile** 자동 생성 (`*[expo] com.dreamteller.app AdHoc 1779456107278`, 만료 2027-05-22)
+   - 본인 iPhone UDID `00008120-001164982E00C01E` Apple Developer 계정 등록 (Internal distribution 용)
+   - Apple Push Notifications Key 자동 생성 (미래 push reminder 도입 대비)
+5. **EAS preview 빌드 1회 성공 + iPhone 설치 → 런타임 실패** ⚠️
+   - 빌드 자체는 EAS 클라우드에서 정상 완료 → 본인 iPhone에 QR 코드로 install 성공
+   - 그러나 앱 부팅 시 **splash 화면에서 멈춤** (런타임 실패)
+   - 원인 진단:
+     - EAS 빌드 시점에 환경변수 0개 (`No environment variables ... found for the "preview" environment on EAS.`)
+     - `services/supabase.ts:9-13`에서 `EXPO_PUBLIC_SUPABASE_URL` 없으면 모듈 import 즉시 throw → 앱 진입 불가
+     - 추가로 `EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/api`는 iPhone에서 절대 접근 불가 (localhost는 iPhone 자기 자신)
+   - 결정: 통합 인프라 트랙 완료 후 운영 URL로 재빌드 (지금 임시 LAN IP/ngrok 우회 안 함)
+
+### 결정 사항 (Gemini)
+- **모델 선택**: Gemini 2.5 Flash 유지 (Claude/GPT 대비 가성비 압도적, 베타 50명 기준 월 $7 수준)
+- **품질 전환 트리거**: 베타 사용자 피드백에서 "해몽 평이/감성 부족" 의견 다수 시 Claude Haiku로 A/B 테스트 검토 (gemini_service.py만 교체 가능한 구조)
+
+### 결정 사항 (AWS 통합 인프라 트랙) ⭐ 큰 결정
+사용자가 도메인 구매 + AWS 인프라 통합 배포로 점프 결정. 흩어져 있던 PROGRESS [3] 약관 / [6] 도메인+SMTP / 백엔드 배포를 **단일 통합 트랙**으로 재구성.
+
+| 컴포넌트 | 서비스 | 역할 |
+|---|---|---|
+| **백엔드 호스팅** | **AWS EC2** (t3.micro, ap-northeast-2, Ubuntu 24.04 LTS) | FastAPI uvicorn + systemd + nginx reverse proxy + Certbot Let's Encrypt SSL → `api.<도메인>` |
+| **도메인 + DNS** | **AWS Route 53** (예정) | hosted zone, A/CNAME/MX/TXT 레코드 통합 관리 |
+| **약관/랜딩 호스팅** | **AWS Amplify Hosting** | 정적 페이지 (`/terms`, `/privacy`, 메인) → `<도메인>` 루트 |
+| **메일 SMTP** | **Resend** + Route 53 도메인 검증 (SPF/DKIM) | `noreply@<도메인>` sender, Supabase Custom SMTP |
+| **클라이언트 환경변수** | **EAS Environment Variables** | `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` |
+
+#### 백엔드를 EC2로 결정한 이유
+- 베타 단계 비용 최소 (t3.micro **무료 1년**, 이후 $8~10/월. App Runner $25/월 대비 1/3)
+- 완전한 컨트롤 (SSH 디버깅, Linux 운영 학습 가치)
+- 베타 사용자 100명 이내까지 t3.micro 1대로 충분
+- 트레이드오프: 셋업 4~8h (App Runner 1~2h 대비), 보안 패치/SSL 갱신/로그 회전 직접 관리
+
+#### Amplify 활용 영역 결정
+- Amplify를 **백엔드(FastAPI)에는 부적합** 판단 → Lambda 기반은 cold start + 15min 한도 + streaming 제약
+- Amplify Hosting은 **약관/랜딩 정적 페이지에만** 활용 (사용자가 이미 익숙한 서비스)
+
+#### 미정 결정 사항 (다음 세션에서 결정)
+- 도메인 이름 (`dreamteller.app` / `.kr` / `.io` / `.com` 등)
+- 도메인 등록처 (Route 53 vs Cloudflare vs 가비아)
+- AWS 계정 보유 여부 + 결제 수단 등록
+- GitHub `dreamteller/server/` push 상태
+
+### 차단점
+- preview 빌드 런타임 실패 — AWS 통합 트랙 완료 후 운영 URL + EAS env 등록 + 재빌드로 해소 예정
+
+### 빌드 시 발견 이슈 (해결됨)
+1. **`build.db is locked`** — 첫 번째 `expo run:ios` 백그라운드가 정리 안 된 채 두 번째 시도 시 발생
+   - 해결: `pkill -9 xcodebuild` + `pkill -9 XCBBuildService`로 lock 잡고 있던 프로세스 정리 후 재시도 성공
+   - 재발 방지: 빌드 백그라운드 실행 중단 시 xcodebuild 관련 프로세스도 함께 정리 필요
+2. **`services/supabase.ts` import 시점 throw** — 환경변수 없으면 모듈 로드 즉시 throw해서 앱이 silent fail (splash 멈춤)
+   - 현재는 dev 단계라 OK지만, **운영 빌드에서는 ErrorBoundary 또는 fallback UI 추가 검토** (배경 트랙 백로그)
+   - PROGRESS 백로그에 등재
+
+---
+
+## 이전 세션 요약 (2026-05-07)
+
+### 완료
+1. **Pretendard 폰트 도입 (트랙 A)** ⭐ — 시스템 폰트 fallback에서 Pretendard 4종으로 전환
+   - 패키지: `expo-font`, `expo-splash-screen` 신규 설치 (Expo SDK 54 core 모듈, dev-client 재빌드 불필요)
+   - 폰트 파일: Pretendard v1.3.9 공식 release에서 표준 OTF 4종 다운로드 → `app/assets/fonts/`에 배치
+     - `Pretendard-Regular.otf` / `Pretendard-Medium.otf` / `Pretendard-SemiBold.otf` / `Pretendard-Bold.otf` (총 ~6MB)
+   - `App.tsx`: `useFonts` hook + `SplashScreen.preventAutoHideAsync()` → 폰트 로드 완료 시 `hideAsync()`. 로드 중엔 `null` 반환으로 스플래시 유지
+   - `app.json`: `expo-font` config plugin 자동 등록 (옵션 없음, 추후 native 임베드 시 fonts 배열 추가 검토)
+   - `typography.ts`는 이미 `Pretendard-Regular/Medium/SemiBold/Bold` 4종을 fontFamily로 지정해두고 있어 별도 코드 변경 없이 즉시 적용
+2. **시뮬레이터 검증** — 시뮬레이터 재시작 후 스크린샷으로 확인
+   - 가중치 4종 차이가 살아있음 (heading Bold / body Regular / 카드 SemiBold) → 4종 모두 정상 로드 증거
+   - 한글 자형이 Apple SD Gothic Neo(시스템)와 다른 Pretendard 특유 modern san-serif로 표시
+   - 영문/숫자도 시스템 SF Pro와 다른 자형 (Inter 기반)
+   - 앱 부팅 정상 (스플래시 → 홈 진입 정상, Tab/Card/Toast 등 모든 UI 정상)
+
+### 결정 사항
+- **Pretendard 4종(400/500/600/700)으로 확정** — 9종 풀세트 대비 ~60% 용량 절감, `typography.ts`에서 사용하는 가중치만 포함
+- **정적 OTF 사용** (Variable 폰트 아님) — RN에서 fontWeight 분기 안정성 우선
+- **useFonts hook 방식 채택** (config plugin 임베드 X) — dev-client 재빌드 불필요, OTA 업데이트와 호환
+- **앱 아이콘은 사용자 직접 제작 후 첨부** — 사양 가이드는 PROGRESS [2] 항목 참조
+
+### 차단점
+- 없음
+
+---
+
+## 이전 세션 요약 (2026-05-03)
+
+### 완료
+1. **Email confirm On 케이스 검증** — Supabase 콘솔에서 "Confirm email" 토글 ON 후 시뮬레이터에서 신규 가입 테스트
+   - 클라이언트 fallback 정상 동작 확인: `signUpWithEmail` 응답에 session=null → SignupScreen이 "메일 확인 필요" Alert 표시 → 확인 누르면 Login 화면으로 정상 이동 → 자동 홈 진입 안 함
+   - 검증 후 Supabase 콘솔에서 Confirm email 토글 OFF로 원복 (개발 편의). 운영 직전 다시 ON 예정
+2. **Custom SMTP 도입 시점 결정** — TestFlight 베타 직전으로 미룸
+   - Supabase 콘솔이 명시적으로 경고: built-in 이메일 서비스는 rate limit 있고 운영용 아님 ("not meant to be used for production apps")
+   - 검증 중 네이버 메일(`dudah0719@naver.com`)에 confirm 메일 미도착 — built-in SMTP 도메인 평판 + 네이버 스팸 필터 조합으로 추정
+   - 도메인 미보유 상태라 지금 Resend `onboarding@resend.dev` 임시 셋업해도 운영용 sender로 결국 갈아엎어야 함 → 도메인 구매 + 약관 호스팅 + Custom SMTP를 한 번에 묶어 처리하기로 결정
+
+### 결정 사항
+- **Custom SMTP**: Resend 권장 (100통/일 무료, 한국 평판 무난). 도메인 확보 후 SPF/DKIM 인증 + Supabase SMTP Settings 입력
+- **도메인**: 약관 호스팅, 마케팅 페이지, 메일 sender에 모두 필요 → 배포 준비 트랙에서 통합 처리
+- **현재 Auth 운영 모드**: Confirm email OFF로 유지 (개발 단계). 운영 직전 ON + Custom SMTP 동시 전환
+
+### 차단점
+- 없음. 다음 작업으로 진행 가능
+
+---
+
+## 이전 세션 요약 (2026-05-02)
 
 ### 완료
 1. **해몽 응답 구조화 (백엔드 v2)** ⭐ — 평문 3개(symbolAnalysis/psychologicalMeaning/unconsciousMessage) → 풍부한 JSON 객체로
@@ -273,7 +410,10 @@
 
 ## 다음 작업 (우선순위 순)
 
-> 정책: Apple 로그인은 배포 후 추가 예정. native Google Sign-In SDK 마이그레이션은 현 UX(두 번째 로그인부터 한 번 탭 자동 통과)로 충분하다 판단되어 백로그에서 제외 — 추후 불편 시 재논의.
+> 정책:
+> - Apple 로그인은 배포 후 추가 예정.
+> - native Google Sign-In SDK 마이그레이션은 현 UX(두 번째 로그인부터 한 번 탭 자동 통과)로 충분하다 판단되어 백로그에서 제외 — 추후 불편 시 재논의.
+> - 도메인 + 백엔드 호스팅 + 약관 + SMTP는 **AWS 단일 통합 트랙 [6]**으로 일괄 진행 (5/22 결정). 이전 PROGRESS의 분산된 [3]·[6]·[7] 항목은 모두 [6] AWS 통합 인프라 배포로 흡수됨.
 
 ### 🚀 배포 전
 
@@ -283,39 +423,113 @@
 - **CharacterDetailScreen** — Phase 2 보류 결정. ArchiveScreen 캐릭터 탭 + AI 캐릭터 추출 파이프라인이 같이 도입될 때 본격 구현 (Phase 2: AI 일러스트 + 캐릭터 추출 묶음)
 
 #### [2] 디자인 에셋 + Pretendard 폰트
-- 앱 아이콘 (1024×1024) + 스플래시 이미지 (현재 placeholder 교체)
-- Pretendard `expo-font` + `useFonts` 도입, 로딩 동안 Splash 유지
+- ✅ **Pretendard 도입** — 2026-05-07 완료 (정적 OTF 4종 + useFonts + SplashScreen 가드)
+- ⏳ **앱 아이콘** — 사용자 직접 제작 중. 첨부 시 아래 사양 준수
+  - `app/assets/icon.png` (1024×1024 PNG, 투명도 X, 모서리 라운드 X, RGB)
+  - `app/assets/adaptive-icon.png` (1024×1024 PNG, 투명도 OK, 중앙 66% 안전 영역)
+  - `app/assets/splash-icon.png` (1024×1024 또는 512×512 PNG, 투명도 OK)
+  - `app/assets/favicon.png` (48×48 PNG, 웹 미배포면 선택)
+- ⏳ **스플래시** — 아이콘 확정 후 `splash-icon.png` 교체로 자동 적용 (`app.json`의 splash 설정 그대로 사용)
 
-#### [3] 이용약관 + 개인정보처리방침 (앱스토어 심사 필수)
-- Settings에 링크 항목 추가 → 외부 웹뷰 또는 호스팅 페이지
-- 방침에 **Gemini로 꿈 데이터 전송 사실 명시** (CLAUDE.md Gemini 운영 주의사항과 연결)
+#### [3] Gemini 운영 직전 유료 전환
+- ✅ **2026-05-22 paid tier 전환 완료** — AI Studio "Tier 1" 활성화 + 이중 cap (Cloud Billing 예산 ₩10,000 알림 + AI Studio 한도 ₩15,000 차단)
+- ✅ end-to-end 검증 통과 (RecordChat 5단계 + 해몽 v2 generate 정상)
+- 운영 모니터링: 베타 시작 후 https://ai.studio/spend 에서 실제 사용량 추적, 50% 알림 도달 시 cap 상향 검토
 
-#### [4] Gemini 운영 직전 유료 전환
-- CLAUDE.md "실서비스 시작 전 반드시 유료 전환" 규칙 (무료 티어 일 20회 한도 + 프롬프트 3년 Google 열람)
-- AI Studio Billing 연결 + spending cap 화면 확인 (4/27 cap 0$ 사고 재발 방지)
+#### [4] Email confirm On 케이스 검증
+- ✅ **2026-05-03 클라이언트 fallback 검증 완료** — Confirm email ON에서 가입 시 SignupScreen이 "메일 확인 필요" Alert → Login 화면 전환 정상. 검증 후 토글 OFF로 원복
+- ⏳ **메일 실제 도달 검증은 통합 인프라 트랙 [6] Phase D 완료 후 재시도** (Custom SMTP 도입 의존)
 
-#### [5] Email confirm On 케이스 검증
-- Supabase 콘솔에서 confirmation 켜고 새 메일 가입 → "메일 확인 필요" Alert fallback 동작 확인
+#### [5] EAS Build 사전 셋업 + Apple Developer credentials
+- ✅ **2026-05-22 EAS CLI + Expo 프로젝트 등록 + Apple credentials 자동 발급 완료**
+  - `eas-cli` 19.0.8 / Expo 계정 `dudah0719` / 프로젝트 ID `fb74201f-a835-4375-9259-b3b81dd3e4ac`
+  - Apple Team `Y99467L298` / Distribution Certificate + Provisioning Profile (만료 2027-05-22)
+  - 본인 iPhone UDID `00008120-001164982E00C01E` Internal distribution 등록
+  - APNs Key 자동 생성 (push reminder 도입 대비)
+- ✅ **preview 빌드 1회 클라우드 빌드 성공 + iPhone 설치 성공**
+- ⚠️ **런타임 실패** — 환경변수 0개로 빌드되어 `services/supabase.ts` import 시점 throw → splash 멈춤. 통합 인프라 트랙 [6] 완료 후 재빌드 예정
 
-#### [6] EAS Build + TestFlight 베타
-- `eas.json` 셋업, Apple Developer 계정 연결 + 인증서 발급
-- `eas build --platform ios --profile preview` → IPA → TestFlight 외부 테스트
-- 본인 + 1~2명 베타 테스터로 운영 빌드 안정성 확인
+#### [6] AWS 통합 인프라 배포 ⭐ 가장 큰 트랙
+> 백엔드 호스팅 + 도메인 + DNS + 약관 호스팅 + Custom SMTP를 **AWS 중심 단일 트랙**으로 통합 진행 (5/22 결정). 이전 PROGRESS의 [3]·[6]·[7]을 통합.
+
+**아키텍처 확정 사항**
+| 컴포넌트 | 서비스 | 산출물 |
+|---|---|---|
+| 백엔드 호스팅 | **AWS EC2 t3.micro** (ap-northeast-2, Ubuntu 24.04 LTS) | `https://api.<도메인>` (FastAPI + nginx + Let's Encrypt) |
+| 도메인 + DNS | **Route 53** (예정) | hosted zone, A/CNAME/MX/TXT 통합 관리 |
+| 약관/랜딩 호스팅 | **AWS Amplify Hosting** | `https://<도메인>/terms`, `/privacy`, 루트 랜딩 |
+| 메일 SMTP | **Resend** + Route 53 도메인 검증 (SPF/DKIM) | `noreply@<도메인>` sender |
+| 클라이언트 환경변수 | **EAS Environment Variables** | preview/production 분리 등록 |
+
+**미정 결정 사항** (다음 세션 첫 단계에서 결정)
+- 도메인 이름 (`dreamteller.app` / `.kr` / `.io` / `.com` 등)
+- 도메인 등록처 (Route 53 통합 vs Cloudflare vs 가비아)
+- AWS 계정 보유 여부 확인 (없으면 가입 + 카드 등록 + 메일 인증, 10분)
+- GitHub `dreamteller/server/` push 상태 확인 (EC2에서 git clone 위해 필요)
+
+**Phase A — AWS 계정 + 도메인 등록**
+- AWS 계정 (없으면 가입)
+- 도메인 등록 (Route 53 또는 외부 등록처에서 구매)
+- Route 53 hosted zone 생성 (외부 등록처면 NS 위임)
+
+**Phase B — EC2 백엔드 배포**
+- EC2 t3.micro 인스턴스 생성 (Ubuntu 24.04 LTS, ap-northeast-2)
+- Elastic IP 할당
+- Security Group: 22(SSH 본인 IP) / 80, 443(전체) / 8000 차단
+- SSH 접속 → Python 3.12 + venv + git 설치
+- `git clone` + venv + `pip install -r requirements.txt`
+- `/etc/dreamteller.env` 생성 (GEMINI_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY 등 환경변수)
+- systemd 유닛 (`/etc/systemd/system/dreamteller.service`) 작성 + `enable --now`
+- nginx 설치 + reverse proxy 설정 (8000 → 443)
+- Certbot Let's Encrypt SSL 발급 (`sudo certbot --nginx -d api.<도메인>`)
+- Route 53 A 레코드 `api.<도메인>` → Elastic IP
+- `curl https://api.<도메인>/health` 동작 확인
+
+**Phase C — 클라이언트 EAS 환경변수 + 재빌드**
+- EAS env 등록 (`eas env:create --environment preview --name EXPO_PUBLIC_API_BASE_URL --value https://api.<도메인>/api` 등 3개)
+- `eas build --platform ios --profile preview` 재실행
+- 본인 iPhone 재설치 → 로그인 + RecordChat + 해몽 end-to-end 검증
+
+**Phase D — Custom SMTP (Resend)**
+- Resend 가입 + API key 발급
+- Route 53에 SPF/DKIM TXT 레코드 추가 + Resend 도메인 검증
+- Supabase Authentication → Emails → SMTP Settings: host `smtp.resend.com`, port 587/465, user `resend`, password=API key, sender `noreply@<도메인>`
+- Supabase URL Configuration: Site URL `dreamteller://`, Redirect URL `dreamteller://auth-callback`
+- 시뮬레이터에서 Confirm email ON 재현 → 실제 메일 도달까지 검증
+
+**Phase E — 약관/개인정보처리방침 + 랜딩 페이지**
+- 약관/방침 작성 (Gemini 데이터 전송 사실 명시 — CLAUDE.md Gemini 운영 주의사항 연결)
+- 정적 HTML 또는 Next.js로 페이지 작성
+- GitHub 저장소에 push → Amplify Hosting GitHub 연동 자동 배포
+- Amplify에서 custom domain `<도메인>` 연결 (Route 53 자동 매핑)
+- Settings 화면에서 약관/방침 링크 항목 추가 → 외부 브라우저 또는 in-app WebView
+
+**Phase F — production 빌드 + TestFlight**
+- production 빌드 (`eas build --platform ios --profile production`) + EAS env production 등록
+- App Store Connect 앱 등록 + 메타데이터 + 스크린샷
+- `eas submit --platform ios --latest` → TestFlight 업로드
+- 본인 + 1~2명 베타 테스터로 외부 테스트
+
+**예상 소요**: Phase A~B 1~2일 + Phase C 30분 + Phase D 1시간 + Phase E 반나절 + Phase F 1일. 총 ~1주일
+
+#### [7] 추후 운영 안전장치 (배포 후 백로그)
+- `services/supabase.ts`의 import 시점 throw 패턴 개선 — ErrorBoundary 또는 fallback UI 추가 (운영 빌드에서 silent splash 멈춤 방지)
+- 환경변수 가드 누락 시 사용자에게 명시적 에러 화면 표시
 
 ### 📱 배포 후 / 선택
 
-#### [7] Apple 로그인 추가
+#### [8] Apple 로그인 추가
 - Supabase Apple Provider + Apple Developer 등록
 - `expo-apple-authentication` + `signInWithIdToken({provider: 'apple', token, nonce})`
 - dev-client 재빌드 후 검증
 
-#### [8] Crash reporting 도입
+#### [9] Crash reporting 도입
 - Sentry / Bugsnag — 운영 시 에러 감지
 
-#### [9] AI 일러스트 / 음성 입력 (Phase 2+)
+#### [10] AI 일러스트 / 음성 입력 (Phase 2+)
 - CLAUDE.md "MVP 이후 별도 Phase" 규칙대로 배포 후 별도 Phase
 
-#### [10] Husky / Lint-staged (선택, 협업 확장 시)
+#### [11] Husky / Lint-staged (선택, 협업 확장 시)
 
 ---
 
