@@ -221,6 +221,57 @@ def _normalize_interpretation_payload(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+TITLE_SYSTEM_PROMPT = """당신은 꿈 일기의 짧은 제목을 만드는 도우미입니다.
+
+규칙:
+- 한국어 5~15자, 명사구 위주.
+- 마침표·물음표·느낌표·이모지·따옴표·접두사 없음.
+- 한 줄만 출력 (다른 설명 금지).
+
+좋은 예: "어두운 숲의 호수", "구름 위에서 날다", "낯선 거리의 만남", "잃어버린 열쇠"."""
+
+
+def generate_title(dream_content: str) -> str:
+    snippet = (dream_content or "").strip()[:600]
+    fallback = snippet[:20].strip() or "제목 없는 꿈"
+    if not snippet:
+        return fallback
+
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        try:
+            response = _client().models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=f"다음 꿈을 5~15자 한국어 짧은 제목으로 만들어주세요.\n\n{snippet}\n\n제목만 한 줄로."
+                            )
+                        ],
+                    )
+                ],
+                config=types.GenerateContentConfig(system_instruction=TITLE_SYSTEM_PROMPT),
+            )
+            raw = (response.text or "").strip()
+            title = raw.split("\n", 1)[0].strip().strip("\"'").rstrip(".!?")
+            if len(title) > 30:
+                title = title[:30].rstrip()
+            if title:
+                logger.info("title generated chars=%s", len(title))
+                return title
+        except (genai_errors.ServerError, genai_errors.ClientError) as exc:
+            last_exc = exc
+            logger.warning("title gen failed attempt=%s: %s", attempt + 1, exc)
+            if attempt < 1:
+                time.sleep(1)
+                continue
+    if last_exc is not None:
+        logger.warning("title gen exhausted retries, using fallback (%s)", last_exc)
+    return fallback
+
+
 def generate_interpretation(dream_content: str) -> dict:
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):

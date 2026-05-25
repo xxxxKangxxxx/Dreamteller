@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.deps.auth import get_current_user_id
 from app.schemas.dream import CreateDreamPayload, UpdateDreamPayload
+from app.services.gemini_service import generate_title
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
@@ -29,13 +30,14 @@ def _to_summary(row: dict[str, Any], has_interpretation: bool = False) -> dict[s
 @router.post("")
 def create_dream(payload: CreateDreamPayload, user_id: UserId) -> dict[str, Any]:
     sb = get_supabase()
+    title = generate_title(payload.raw_content)
     row = {
         "user_id": user_id,
         "raw_content": payload.raw_content,
         "chat_history": [m.model_dump() for m in payload.chat_history],
         "emotion": payload.emotion,
         "recorded_at": payload.recorded_at.isoformat(),
-        "title": "",
+        "title": title,
     }
     res = sb.table("dreams").insert(row).execute()
     if not res.data:
