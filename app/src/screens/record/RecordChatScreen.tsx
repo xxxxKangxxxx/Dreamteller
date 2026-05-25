@@ -15,7 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatBubble } from '@/components/dream/ChatBubble';
 import { ToastContainer } from '@/components/ui/Toast';
@@ -138,10 +138,11 @@ export function RecordChatScreen() {
 
   const canSend = input.trim().length > 0 && !isStreaming;
   const currentStep = session?.step ?? 1;
+  const insets = useSafeAreaInsets();
 
   return (
     <>
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable
           onPress={handleClose}
@@ -175,7 +176,12 @@ export function RecordChatScreen() {
           )}
         />
 
-        <View style={styles.inputRow}>
+        <View
+          style={[
+            styles.inputRow,
+            { paddingBottom: Math.max(insets.bottom, spacing.sm) },
+          ]}
+        >
           <TextInput
             style={styles.input}
             value={input}
@@ -202,7 +208,7 @@ export function RecordChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
     <ToastContainer topOffset={48} />
     </>
   );
