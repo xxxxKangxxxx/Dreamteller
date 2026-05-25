@@ -42,7 +42,7 @@ export function RootNavigator() {
             name="RecordChat"
             component={RecordChatScreen}
             options={{
-              presentation: 'modal',
+              presentation: 'fullScreenModal',
               animation: 'slide_from_bottom',
               gestureEnabled: false,
             }}
