@@ -1,55 +1,41 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DreamCard } from '@/components/dream/DreamCard';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
+import { useDreams } from '@/hooks/queries/useDreams';
 import type { RootStackParamList } from '@/navigation/types';
-import type { Dream } from '@/types/dream';
 import { getGreeting } from '@/utils/date';
 import { maybePromptResume } from '@/utils/sessionResume';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
-const SAMPLE_DREAMS: Dream[] = [
-  {
-    id: '1',
-    title: '구름 위에서 날다',
-    rawContent: '하늘 위에서 자유롭게 날아다녔다.',
-    emotion: 'POSITIVE',
-    dreamType: 'LUCID',
-    illustrationUrl: null,
-    tags: [{ label: '비행' }, { label: '구름' }],
-    hasInterpretation: true,
-    recordedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: '어두운 숲의 낯선 만남',
-    rawContent: '어두운 숲에서 낯선 사람을 만났다.',
-    emotion: 'NEGATIVE',
-    dreamType: 'SYMBOLIC',
-    illustrationUrl: null,
-    tags: [{ label: '숲' }],
-    hasInterpretation: false,
-    recordedAt: new Date(Date.now() - 86_400_000).toISOString(),
-  },
-];
+const RECENT_LIMIT = 3;
 
 export function HomeScreen() {
   const navigation = useNavigation<Navigation>();
   const greeting = getGreeting();
+  const { data, isLoading, isError } = useDreams();
+
+  const recentDreams = (data?.dreams ?? []).slice(0, RECENT_LIMIT);
 
   useEffect(() => {
     void maybePromptResume(() => navigation.navigate('RecordChat'));
   }, [navigation]);
+
+  const handleDreamPress = useCallback(
+    (id: string) => navigation.navigate('InterpretDetail', { dreamId: id }),
+    [navigation],
+  );
 
   return (
     <ScreenWrapper hasTabBar scrollable>
@@ -82,11 +68,23 @@ export function HomeScreen() {
       </Card>
 
       <Text style={styles.sectionLabel}>최근 꿈</Text>
-      <View style={styles.list}>
-        {SAMPLE_DREAMS.map((dream) => (
-          <DreamCard key={dream.id} dream={dream} onPress={() => {}} />
-        ))}
-      </View>
+      {isLoading ? (
+        <View style={styles.list}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={84} />
+          ))}
+        </View>
+      ) : isError ? (
+        <Text style={styles.placeholder}>꿈 목록을 불러오지 못했어요</Text>
+      ) : recentDreams.length === 0 ? (
+        <Text style={styles.placeholder}>아직 기록한 꿈이 없어요</Text>
+      ) : (
+        <View style={styles.list}>
+          {recentDreams.map((dream) => (
+            <DreamCard key={dream.id} dream={dream} onPress={handleDreamPress} />
+          ))}
+        </View>
+      )}
     </ScreenWrapper>
   );
 }
@@ -130,5 +128,10 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.sm,
+  },
+  placeholder: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
+    paddingVertical: spacing.md,
   },
 });
