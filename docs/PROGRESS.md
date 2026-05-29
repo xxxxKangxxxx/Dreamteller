@@ -1,11 +1,86 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-05-22 (Gemini paid tier + EAS Build 셋업 + AWS 통합 인프라 트랙 확정)
+> 최종 업데이트: 2026-05-29 (AWS 통합 인프라 Phase B 완료 + Phase C 부분 완료 + HomeScreen·Gemini title·RecordChat UI fix)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-05-22)
+## 오늘 세션 요약 (2026-05-24 ~ 05-29, AWS Phase A·B 완료 + Phase C 진행 + UI/기능 fix 6개)
+
+### Phase A — AWS 계정 + 도메인 등록 + DNS 위임 ✅ 완료 (5/24)
+- AWS IAM 사용자 `dreamteller-admin` 셋업 (AdministratorAccess + MFA `dreamteller-Authenticator`)
+- 가비아 보유 도메인 `dreamteller.io.kr` → Route 53 hosted zone 생성
+- 가비아 NS를 Route 53 NS 4개로 교체 (`ns-7.awsdns-00.com` / `ns-855.awsdns-42.net` / `ns-1453.awsdns-53.org` / `ns-1760.awsdns-28.co.uk`)
+- NS 전파 즉시 완료 (`.kr` 도메인 KISA 빠른 처리)
+
+### Phase B — EC2 백엔드 배포 ✅ 완료 (5/24)
+- EC2 **t4g.micro ARM Graviton** (Ubuntu 24.04 LTS, ap-northeast-2)
+- Elastic IP `54.116.7.53` 할당 + Route 53 A 레코드 `api.dreamteller.io.kr`
+- SSH key `~/.ssh/dreamteller-ec2-key.pem` chmod 400
+- 시스템 패키지: Python 3.12.3 + nginx 1.24.0 + Certbot 2.9.0 + git 2.43.0
+- GitHub clone (`/home/ubuntu/Dreamteller`) + venv + `pip install -r requirements.txt` (ARM aarch64 wheels)
+- `/home/ubuntu/dreamteller.env` scp 안전 전송 (ubuntu:ubuntu 600)
+- systemd `dreamteller.service` (`User=ubuntu`, `Restart=always`, uvicorn 127.0.0.1:8000)
+- nginx reverse proxy + Let's Encrypt SSL (`https://api.dreamteller.io.kr`, 만료 2026-08-22, 자동 갱신)
+- 운영 URL `https://api.dreamteller.io.kr` 가동 + `/health` HTTP 200 검증
+
+### Phase C — 클라이언트 EAS 환경변수 + 재빌드 ⏳ 부분 완료 (5/24~5/25)
+- ✅ EAS env 6개 등록 (preview 3 + production 3): `EXPO_PUBLIC_API_BASE_URL` / `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (sensitive)
+- ✅ preview 재빌드 성공 — 빌드 로그에서 env 정상 로드 확인 ("Environment variables ... loaded from the preview environment")
+- ✅ iPhone 재설치 + 로그인 통과 (이전 5/22 빌드의 splash 멈춤 해소)
+- ✅ **end-to-end 검증 (홈 데이터/3개/탭→상세)** 통과:
+  - "최근 꿈" 실제 백엔드 데이터 표시
+  - 최대 3개 slice 적용
+  - 탭 → `InterpretDetail` 이동 정상
+- ⏳ **Gemini title 자동 생성 검증** + 5단계 대화 + 해몽 v2 검증은 다음 세션 예정
+
+### 기능/UI Fix 7개 (5/25~5/29)
+1. **`HomeScreen.tsx` 실 데이터 wiring** ⭐ — 5/2 이후 stub 상태였던 게 검증 중 발견
+   - `SAMPLE_DREAMS` 하드코딩 제거 (`구름 위에서 날다` / `어두운 숲의 낯선 만남` 2개 고정)
+   - `useDreams` hook 연결 + `slice(0, 3)` 최대 3개 + `onPress` → `InterpretDetail` 네비게이션
+   - Loading (Skeleton 3개) / Error / Empty 상태 처리 (ArchiveScreen 패턴)
+   - commit `e2f8d91`
+2. **백엔드 Gemini title 자동 생성** ⭐ — 기존 `title=""` 빈 문자열로 저장 → 클라이언트 "제목 없는 꿈" fallback 문제 해결
+   - `app/services/gemini_service.py`에 `generate_title(dream_content) -> str` 추가
+   - 5~15자 한국어 명사구 prompt, 2회 retry, 실패 시 raw_content 앞 20자 fallback
+   - `app/routes/dreams.py`의 `create_dream`에서 호출 (해몽 받기 분기 외 그냥 저장 분기에도 동일 적용)
+   - 기존 데이터(title="") 백필 안 함 — 베타 본인 데이터뿐, 새 dream부터 적용
+   - 추가 호출 ~$0.002/건 (무시 가능), latency +1s
+   - commits `21794bc` + EC2 git pull + `systemctl restart dreamteller`
+3. **RecordChat 키보드 가림 1차 fix** — `presentation: 'modal'` (iOS pageSheet sheet) → **`'fullScreenModal'`** 전환
+   - iOS modal sheet 안에서 `KeyboardAvoidingView`가 키보드 높이 좌표 잘못 계산하던 문제
+   - SafeAreaView edges `['top']` → `['top', 'bottom']` (홈 인디케이터 영역 처리 시도)
+   - commit `31f3cef`
+4. **RecordChat 상단/하단 safe area 미적용 2차 fix** — fullScreenModal 안에서 `SafeAreaView` edges prop이 동작 안 함 (iOS 26 + react-native-safe-area-context modal 호환성 이슈)
+   - 증상: 헤더 X 버튼이 status bar(`00:07`) 옆에 겹침, 입력창이 홈 인디케이터에 닿음
+   - 해결: `SafeAreaView` 제거 + `useSafeAreaInsets` hook으로 명시적 padding (`paddingTop: insets.top`, `paddingBottom: max(insets.bottom, spacing.sm)`)
+   - commit `a70f5bc`
+5. **RecordChat 키보드 padding 3차 fix** — 키보드 올라온 상태에서 입력창 아래 ~100px 빈 공간 발생
+   - 원인: `KeyboardAvoidingView`가 키보드 높이만큼 위로 올렸는데, inputRow의 `paddingBottom: insets.bottom`(34px)이 그대로 남아 이중 처리
+   - 해결: `Keyboard.addListener('keyboardWillShow'/'Hide')`로 visible state 추적 → keyboardVisible 시 `spacing.sm`만, 아니면 `max(insets.bottom, spacing.sm)`
+   - commit `5e73b15`
+
+### 백엔드 EC2 재배포 흐름 확립 (5/25)
+- 로컬 commit + push → EC2 SSH → `git pull` + `sudo systemctl restart dreamteller`
+- 첫 health는 startup 직전이라 502 가능 (3~5초 후 정상)
+
+### IP 변동 이슈 (5/25)
+- 사용자 ISP가 IP를 자주 갱신 (KT 대역) — `118.235.10.154` → `118.235.11.173` → `58.148.50.229` (5/24 ~ 5/25 사이 두 번 변경)
+- 매번 EC2 보안 그룹 SSH 소스 IP 수동 업데이트 → 부담
+- 영구 해결책 백로그: **AWS Systems Manager Session Manager** 도입 (PROGRESS [7]에 추가)
+
+### 결정 사항
+- **`HomeScreen.tsx`는 처음부터 stub이었음** — PROGRESS의 "실 구현" 표기를 신뢰하지 말고 검증 단계에서 항상 실제 동작 확인. 메모리 백로그
+- **title 자동 생성 방식**: Gemini (b) 채택 — 의미 있는 한국어 짧은 제목. (a) raw_content 첫 N자 대비 품질 우위, 비용 미미
+- **RecordChat presentation**: `fullScreenModal` 확정 — iOS modal sheet는 키보드 호환성 이슈로 비추
+- **safe area 처리 패턴**: `SafeAreaView` 대신 `useSafeAreaInsets` 권장 — modal 안에서 더 안정적
+
+### 차단점
+- 없음. Step 4 (Gemini title + 5단계 + 해몽 v2 end-to-end) 검증만 남음
+
+---
+
+## 이전 세션 요약 (2026-05-22)
 
 ### 완료
 1. **Gemini API paid tier 전환** ⭐ — 무료 티어에서 paid (Tier 1)로 전환 완료
@@ -455,40 +530,89 @@
 **아키텍처 확정 사항**
 | 컴포넌트 | 서비스 | 산출물 |
 |---|---|---|
-| 백엔드 호스팅 | **AWS EC2 t3.micro** (ap-northeast-2, Ubuntu 24.04 LTS) | `https://api.<도메인>` (FastAPI + nginx + Let's Encrypt) |
-| 도메인 + DNS | **Route 53** (예정) | hosted zone, A/CNAME/MX/TXT 통합 관리 |
-| 약관/랜딩 호스팅 | **AWS Amplify Hosting** | `https://<도메인>/terms`, `/privacy`, 루트 랜딩 |
-| 메일 SMTP | **Resend** + Route 53 도메인 검증 (SPF/DKIM) | `noreply@<도메인>` sender |
+| 백엔드 호스팅 | **AWS EC2 t4g.micro** (ARM Graviton, ap-northeast-2, Ubuntu 24.04 LTS) | `https://api.dreamteller.io.kr` (FastAPI + nginx + Let's Encrypt) |
+| 도메인 + DNS | **AWS Route 53** (도메인 등록은 가비아 유지, NS는 Route 53 위임) | hosted zone, A/CNAME/MX/TXT 통합 관리 |
+| 약관/랜딩 호스팅 | **AWS Amplify Hosting** | `https://dreamteller.io.kr/terms`, `/privacy`, 루트 랜딩 |
+| 메일 SMTP | **Resend** + Route 53 도메인 검증 (SPF/DKIM) | `noreply@dreamteller.io.kr` sender |
 | 클라이언트 환경변수 | **EAS Environment Variables** | preview/production 분리 등록 |
+| AWS 계정 관리 | **IAM 사용자** `dreamteller-admin` + AdministratorAccess + MFA | 루트 직접 사용 차단, 일상 작업은 IAM 사용자 |
 
-**미정 결정 사항** (다음 세션 첫 단계에서 결정)
-- 도메인 이름 (`dreamteller.app` / `.kr` / `.io` / `.com` 등)
-- 도메인 등록처 (Route 53 통합 vs Cloudflare vs 가비아)
-- AWS 계정 보유 여부 확인 (없으면 가입 + 카드 등록 + 메일 인증, 10분)
-- GitHub `dreamteller/server/` push 상태 확인 (EC2에서 git clone 위해 필요)
+**확정 사항** (5/24 결정)
+- ✅ **도메인 이름**: `dreamteller.io.kr` (가비아 등록, ~₩15,000/년 추정)
+- ✅ **도메인 등록처**: 가비아 유지 (.kr 한국 도메인) + **NS는 Route 53 위임**
+- ✅ **AWS 계정**: 보유 (`920372986654` / Kang), IAM 사용자 `dreamteller-admin` 셋업 완료
+- ✅ **GitHub server push**: 5/24 재푸시 완료 (5/2~5/22 누적 변경사항 3개 commit으로 분할)
+- ✅ **EC2 아키텍처**: ARM (Graviton t4g.micro) — DreamTeller 의존성 모두 ARM 호환, 30% 더 빠르고 20% 더 저렴
 
-**Phase A — AWS 계정 + 도메인 등록**
-- AWS 계정 (없으면 가입)
-- 도메인 등록 (Route 53 또는 외부 등록처에서 구매)
-- Route 53 hosted zone 생성 (외부 등록처면 NS 위임)
+**미래 확장 (Phase 2+) — 현재 EC2 설정 변경 없이 추후 도입 가능** ⭐
+| 항목 | 도입 시 작업 | 현재 영향 |
+|---|---|---|
+| **Supabase → AWS RDS PostgreSQL** | 같은 VPC에 RDS PostgreSQL (db.t4g.micro) 추가 / RDS 전용 SG 만들고 EC2→RDS 5432 허용 / `pg_dump`로 Supabase 데이터 → `pg_restore`로 RDS / 코드: `supabase-py` → `asyncpg`+`sqlalchemy` / Auth는 Supabase Auth 유지 또는 자체 JWT로 이전 | EC2 인스턴스 그대로, VPC 같이 두면 됨 |
+| **S3 파일 스토리지** | S3 bucket 생성 / IAM Role (S3 액세스) 생성 후 EC2 인스턴스에 attach / 코드: `boto3` 또는 `aioboto3` / 권장 패턴: **Presigned URL** (백엔드 발급, 클라이언트 직접 업로드 → 서버 부하 최소화) | EC2 그대로, IAM Role은 인스턴스 생성 후에도 부여 가능 |
+| **CloudFront CDN** (선택) | S3 + CloudFront 연결 / Route 53 CNAME `cdn.dreamteller.io.kr` | 이미지 latency 개선용, 베타엔 무관 |
 
-**Phase B — EC2 백엔드 배포**
-- EC2 t3.micro 인스턴스 생성 (Ubuntu 24.04 LTS, ap-northeast-2)
-- Elastic IP 할당
-- Security Group: 22(SSH 본인 IP) / 80, 443(전체) / 8000 차단
-- SSH 접속 → Python 3.12 + venv + git 설치
-- `git clone` + venv + `pip install -r requirements.txt`
-- `/etc/dreamteller.env` 생성 (GEMINI_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY 등 환경변수)
-- systemd 유닛 (`/etc/systemd/system/dreamteller.service`) 작성 + `enable --now`
-- nginx 설치 + reverse proxy 설정 (8000 → 443)
-- Certbot Let's Encrypt SSL 발급 (`sudo certbot --nginx -d api.<도메인>`)
-- Route 53 A 레코드 `api.<도메인>` → Elastic IP
-- `curl https://api.<도메인>/health` 동작 확인
+→ 현재 EC2 t4g.micro + EBS 30GiB + 기본 VPC + SG 3 규칙 설정으로 미래 확장도 수용 가능. 추후 도입 시점에 RDS/S3/IAM Role 추가만 하면 됨.
 
-**Phase C — 클라이언트 EAS 환경변수 + 재빌드**
-- EAS env 등록 (`eas env:create --environment preview --name EXPO_PUBLIC_API_BASE_URL --value https://api.<도메인>/api` 등 3개)
-- `eas build --platform ios --profile preview` 재실행
-- 본인 iPhone 재설치 → 로그인 + RecordChat + 해몽 end-to-end 검증
+**Phase A — AWS 계정 + 도메인 등록 + DNS 위임** ✅ 완료 (2026-05-24)
+- ✅ AWS 계정 보유 + IAM 사용자 `dreamteller-admin` 셋업 + MFA
+- ✅ 가비아에서 `dreamteller.io.kr` 도메인 보유 (기존)
+- ✅ Route 53 hosted zone 생성 (`dreamteller.io.kr`)
+- ✅ 가비아 NS를 Route 53 NS 4개로 교체 (`ns-7.awsdns-00.com` / `ns-855.awsdns-42.net` / `ns-1453.awsdns-53.org` / `ns-1760.awsdns-28.co.uk`)
+- ✅ NS 전파 즉시 완료 (`dig NS dreamteller.io.kr +short` 통과)
+
+**Phase B — EC2 백엔드 배포** ✅ 완료 (2026-05-24)
+- ✅ EC2 인스턴스 생성 (**t4g.micro ARM Graviton**, Ubuntu 24.04 LTS, ap-northeast-2, 기본 VPC)
+  - 키 페어 `dreamteller-ec2-key` (RSA .pem, `~/.ssh/dreamteller-ec2-key.pem` chmod 400)
+  - 보안 그룹 `dreamteller-api-sg`: 22(SSH `118.235.11.173/32`) / 80, 443(전체) / 8000은 외부 차단 (nginx만 접근)
+  - 고급: 인스턴스 자동 복구 활성화 / 종료 방지 활성화 / 크레딧 사양 표준 / IMDSv2 강제
+  - 인스턴스 ID: `i-03894ef3a848c1da3`, 프라이빗 IP `172.31.22.29`
+- ✅ Elastic IP 할당 + 연결: **`54.116.7.53`** (allocation `eipalloc-005ceeba0931494b2`)
+- ✅ Route 53 A 레코드: `api.dreamteller.io.kr` → `54.116.7.53` (TTL 300, 즉시 전파)
+- ✅ SSH 접속 (`ssh -i ~/.ssh/dreamteller-ec2-key.pem ubuntu@54.116.7.53`)
+  - aarch64 Ubuntu 24.04.4 LTS, Kernel 6.17.0-1012-aws, 디스크 27GB 여유, 메모리 906MiB
+- ✅ 시스템 패키지: Python 3.12.3 + nginx 1.24.0 + Certbot 2.9.0 + git 2.43.0
+- ✅ GitHub repo clone: `/home/ubuntu/Dreamteller/` (public repo)
+- ✅ venv 생성 + `pip install -r requirements.txt` (모든 의존성 ARM aarch64 wheels)
+  - fastapi 0.136.3 / uvicorn 0.47.0 / supabase 2.30.0 / google-genai 2.6.0 / PyJWT 2.13.0 / pydantic-settings 2.14.1
+- ✅ `.env` 안전 전송: `scp`로 `/home/ubuntu/dreamteller.env` (ubuntu:ubuntu 600)
+  - 4 keys: PORT / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / GEMINI_API_KEY
+- ✅ systemd 유닛 `/etc/systemd/system/dreamteller.service`:
+  - `User=ubuntu`, `EnvironmentFile=/home/ubuntu/dreamteller.env`
+  - `ExecStart=/home/ubuntu/Dreamteller/server/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000`
+  - `Restart=always`, `RestartSec=5`
+  - `enable --now` → active (running), uvicorn 메모리 88.8MB
+  - Local health check: `curl http://127.0.0.1:8000/health` → `{"status":"ok"}` HTTP 200
+- ✅ nginx reverse proxy `/etc/nginx/sites-available/dreamteller`:
+  - `server_name api.dreamteller.io.kr`, `listen 80`
+  - `proxy_pass http://127.0.0.1:8000` + 표준 헤더 + 120s timeout (Gemini long-running 대비)
+  - `sites-enabled` 심볼릭 링크, `default` 사이트 제거
+  - HTTP 외부 접근 확인: `curl http://api.dreamteller.io.kr/health` → HTTP 200
+- ✅ Let's Encrypt SSL: `sudo certbot --nginx -d api.dreamteller.io.kr --non-interactive --agree-tos --email kang071911@gmail.com --redirect`
+  - 인증서 `/etc/letsencrypt/live/api.dreamteller.io.kr/fullchain.pem`
+  - 만료 2026-08-22 (90일), Certbot 자동 갱신 cron 설정됨
+  - HTTPS 외부 접근 확인: `curl https://api.dreamteller.io.kr/health` → HTTP 200, SSL verify OK
+  - HTTP → HTTPS 301 자동 redirect 확인
+
+**Phase B 산출물 요약**:
+- 운영 백엔드 URL: **`https://api.dreamteller.io.kr`** ⭐
+- 운영 비용 (베타): EC2 무료 1년 + Elastic IP 할당 인스턴스 무료 + Route 53 hosted zone $0.50/월 = **~$0.50/월**
+- 1년 후 비용: t4g.micro ~$6/월 + Route 53 $0.50/월 = **~$6.5/월**
+
+**Phase C — 클라이언트 EAS 환경변수 + 재빌드** ⏳ 부분 완료 (2026-05-24)
+- ✅ **EAS env 등록 6개 (preview 3 + production 3)** — `eas env:create --environment {preview|production} --name X --value Y` 6번 실행
+  - `EXPO_PUBLIC_API_BASE_URL` = `https://api.dreamteller.io.kr/api` (plaintext)
+  - `EXPO_PUBLIC_SUPABASE_URL` = `https://votdhwgsjxpladlodqyy.supabase.co` (plaintext)
+  - `EXPO_PUBLIC_SUPABASE_ANON_KEY` = `sb_publishable_...` (**sensitive** — 마스킹 저장)
+  - preview/production 동일 값 (베타 단계엔 같은 백엔드 사용, 추후 staging 분리 시점에 분리)
+- ✅ **preview 재빌드 성공** — `eas build --platform ios --profile preview`
+  - 빌드 로그 첫 줄에서 env 정상 로드 확인: `Environment variables ... loaded from the "preview" environment on EAS: EXPO_PUBLIC_API_BASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_SUPABASE_URL`
+  - 이전(5/22)의 `No environment variables ... found` 경고 해소
+  - Apple credentials + Provisioning Profile 재사용 (Apple 재로그인 skip)
+- ✅ **iPhone 재설치 + 부팅 정상** — 이전 splash 멈춤 해소
+- ✅ **로그인 통과** — Supabase Auth(JWKS) + 백엔드 인증 양쪽 통신 OK
+- ⏳ **end-to-end 검증 남음** — 홈 진입 → RecordChat 5단계 → RecordSummary → 해몽 generate → InterpretScreen까지 실 디바이스에서 한 번 통과 필요
+  - 검증 통과 시 EC2 백엔드 + Gemini paid tier + Supabase 통합 동작 확정
+  - 백엔드 디버깅 명령: `ssh ubuntu@54.116.7.53 'sudo journalctl -u dreamteller -f'` (실시간 로그)
 
 **Phase D — Custom SMTP (Resend)**
 - Resend 가입 + API key 발급
@@ -515,6 +639,11 @@
 #### [7] 추후 운영 안전장치 (배포 후 백로그)
 - `services/supabase.ts`의 import 시점 throw 패턴 개선 — ErrorBoundary 또는 fallback UI 추가 (운영 빌드에서 silent splash 멈춤 방지)
 - 환경변수 가드 누락 시 사용자에게 명시적 에러 화면 표시
+- **AWS Systems Manager Session Manager 도입** ⭐ — 사용자 ISP가 IP를 자주 갱신해서 EC2 SG SSH 소스 매번 업데이트 부담 (5/24~5/25 사이 2회 발생)
+  - 도입 시: SSM Agent + IAM Role(`AmazonSSMManagedInstanceCore`) → SG SSH 22 규칙 불필요, 브라우저에서 셸 접속
+  - 셋업 시간: ~30분 (Phase D 끝나고 검토)
+- **백엔드 OTA 배포 자동화 검토** — 현재 EC2에 수동 `git pull` + `systemctl restart`. GitHub Actions + SSH/SSM으로 자동화 (배포 후 도입 검토)
+- **RecordChat UI 백로그** — 검증 중 추가 UI 개선점 사용자 발견 시 묶어서 fix (preview 빌드 한도 30분/월 절약 위해 묶어서 진행)
 
 ### 📱 배포 후 / 선택
 
