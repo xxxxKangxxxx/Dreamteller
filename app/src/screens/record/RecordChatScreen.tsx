@@ -7,6 +7,7 @@ import {
   AppState,
   type AppStateStatus,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -47,7 +48,19 @@ export function RecordChatScreen() {
   const showToast = useUIStore((s) => s.showToast);
 
   const [input, setInput] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const listRef = useRef<FlatList<ListItem>>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     ensureSession();
@@ -179,7 +192,11 @@ export function RecordChatScreen() {
         <View
           style={[
             styles.inputRow,
-            { paddingBottom: Math.max(insets.bottom, spacing.sm) },
+            {
+              paddingBottom: keyboardVisible
+                ? spacing.sm
+                : Math.max(insets.bottom, spacing.sm),
+            },
           ]}
         >
           <TextInput
