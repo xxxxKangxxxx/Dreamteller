@@ -1,11 +1,54 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-17 (Phase E 착수 — 약관/방침 확정본 + 정적 사이트 + Amplify 배포 구조)
+> 최종 업데이트: 2026-06-18 (Phase E 완료 + UI/프롬프트 폴리시 패스 + Phase F 착수)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트)
 
 ---
 
-## 오늘 세션 요약 (2026-06-17, Phase E 착수 — 약관/방침 + 정적 사이트)
+## 오늘 세션 요약 (2026-06-17~18, Phase E 완료 + UI/프롬프트 폴리시 + Phase F 착수)
+
+### Phase E 완료 — Amplify 배포 + 도메인 + 문의처
+- ✅ Amplify Hosting 배포(Seoul, GitHub `main` 연동, amplify.yml `baseDirectory: web`) + 기본 도메인 3페이지 렌더 확인
+- ✅ Custom domain `dreamteller.io.kr` 연결(루트+www → main, Amplify SSL, Route 53 자동, `api.` 유지). 외부 curl로 `/terms.html`·`/privacy.html`·`api/health` 모두 200 검증
+- ✅ 문의처 이메일: 베타는 `kang071911@gmail.com` 임시, 정식 출시 때 `support@dreamteller.io.kr` 도메인 메일 구축. 약관/방침/랜딩/README 반영
+- → 상세는 아래 "다음 작업 [6] Phase E" 섹션 참조
+
+### Phase F 착수 — App Store 준비
+- ✅ `docs/appstore/METADATA.md` 작성 — 앱 이름/부제/설명/키워드, App Privacy 매핑(privacy.html과 일치), 심사용 데모 계정·연령등급 노트, 수출규정, build/submit 명령
+- ✅ production EAS env 3개 등록 확인(API/SUPABASE_URL/ANON_KEY — 운영 도메인 기준)
+- ⏳ **아이콘 대기** — 아이콘 4종 교체 후 production 빌드 1회 + `eas submit`. (지금 `assets/*.png`은 Expo 기본 placeholder)
+- ⏳ App Store Connect 앱 레코드 생성(콘솔), 스크린샷, 심사용 데모 계정 생성
+
+### UI/UX 폴리시 패스 (실기기 기준, preview 빌드 반복 검증) ⭐
+TestFlight 전 다듬기. 변경은 모아서 preview 빌드로 검증하는 방식.
+- **StarParticleLoader**: 180px 정사각 → 부모 폭 가득(`alignSelf:stretch`), 파티클 16→30개, 높이 기반 낙하 (해몽 로딩이 화면에 꽉 차게)
+- **RecordChat 키보드**: 전송 시 키보드 닫히던 문제 — `editable={!isStreaming}` 게이팅 제거(스트리밍 중 입력창 비활성→iOS 키보드 dismiss가 원인)
+- **OnboardingScreen 리디자인**: 이모지 제거 + LinearGradient 배경 + 깜빡이는 별 16개 레이어 + STEP 01~03 구체 플로우 카피(좌측 정렬) + 제목 34→26px(긴 제목 줄바꿈 방지)
+- **WelcomeScreen**: 이모지(✨) 제거 + 브랜드는 상단/버튼은 하단 배치(spacer 1:1.8). (1차에 버튼을 너무 올려 되돌림)
+- **Auth(Login/Signup/OTP)**: KeyboardAvoidingView 제거(키보드가 화면 안 밀어올림) + 이모지(✨🌙) 제거 + 입력창 수직 중앙정렬(상속 lineHeight 해제)
+- **HomeScreen**: 인사말 시간대 이모지 + CTA `✨` 제거 (최근 꿈 감정 이모지는 유지)
+- **Settings**: 약관/방침 외부 링크 항목 추가(`dreamteller.io.kr/terms.html`·`/privacy.html`)
+- 모든 변경 `npx tsc --noEmit` 통과
+
+### 채팅 프롬프트 + 완료 흐름 (백엔드) ⭐
+- **이모지 금지**: `LUNA_SYSTEM_PROMPT` "0~2개 사용" → 이모지/이모티콘 금지. 첫 질문 🌙, Step5 ✨, fallback 이모지(✨😴🌙) 모두 제거. `PROMPT_GUIDE.md` 동기화
+- **Step 5 완료 off-by-one 수정**: `_system_for_step` 마무리 분기 `step>=5` → `step>=4`. 사용자가 마지막 질문(감정)에 답한 그 응답에서 바로 `[RECORD_COMPLETE]` → 추가 입력 없이 요약 화면 이동
+- **EC2 배포 완료**: 사용자가 `git pull && systemctl restart` 실행, health 200 확인. **백엔드 변경은 현재 설치 앱으로도 테스트 가능** (클라 재빌드 불필요)
+
+### 다음 세션 시작 시 (실기기 검증 대기)
+- 마지막 preview 빌드(`5c414af8`) 설치 후 검증: 채팅 완료 흐름(감정 답변→자동 마무리), 첫 질문/Luna/fallback 이모지 제거, Onboarding/Welcome/Auth/Home UI
+- 검증 OK → Phase F(아이콘 → production 빌드 → TestFlight)
+- 사용자 확인: 오늘 채팅 이모지 사라진 것 확인함
+
+### 오늘 발생한 오류 및 해결 내역
+1. **채팅 완료가 한 턴 늦게 트리거 (off-by-one)** — 감정(마지막 질문) 답변 후 추가 입력을 해야 `[RECORD_COMPLETE]`가 나옴. 마무리 멘트인데 사용자 입력을 요구하는 모순. → `_system_for_step` 분기를 `step>=4`로 내려 마지막 답변 턴에서 바로 완료되게 수정
+2. **RecordChat 전송 시 키보드 닫힘** — `editable={!isStreaming}`로 전송 직후 입력창이 비활성화되며 iOS가 키보드를 dismiss. → 게이팅 제거(전송은 isStreaming/canSend로 이미 가드됨)
+3. **Auth 입력창 텍스트/플레이스홀더 수직정렬 틀어짐** — `textStyles.body`의 `lineHeight(폰트×1.6)`가 단일행 TextInput에서 iOS 수직중앙을 깸. → `lineHeight: undefined` + `paddingVertical:0` + `textAlignVertical:center`
+4. **WelcomeScreen 버튼을 과하게 위로 올림** — 1차에 브랜드+버튼을 묶어 상단으로 올렸더니 버튼이 너무 높음. → spacer를 브랜드와 버튼 사이로 옮겨 버튼 하단 복귀, 브랜드만 상단
+
+---
+
+## 이전 세션 요약 (2026-06-17, Phase E 착수 — 약관/방침 + 정적 사이트)
 
 ### Phase E-1: 약관/개인정보처리방침 확정본 ✅ 완료
 - `docs/legal/TERMS.md` (서비스 이용약관 12조 + 부칙) + `docs/legal/PRIVACY.md` (개인정보처리방침 11조) 작성
