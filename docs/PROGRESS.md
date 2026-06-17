@@ -21,14 +21,23 @@
 - 리포 루트 `amplify.yml` 추가 (`baseDirectory: web`, 빌드 없는 정적 배포)
 - 로컬 검증: `python3 -m http.server`로 4개 경로 모두 HTTP 200, 약관 12조/방침 11조 렌더 확인
 
-### 다음 (Phase E 마무리 — 콘솔/앱 작업)
-- ⏳ **Amplify Hosting 콘솔 배포** (사용자 직접): GitHub 연동 → `main` 브랜치 → custom domain `dreamteller.io.kr` 연결 (Route 53 자동 매핑, `api.` 레코드는 건드리지 않음)
-- ⏳ **support@dreamteller.io.kr 수신 설정** (SES는 발신 전용 → Cloudflare Email Routing 등 별도)
-- ⏳ **Settings 화면에 약관/방침 링크 추가** (앱 내, 공개 URL 확정 후)
-- 공개 URL 예정: `https://dreamteller.io.kr/terms.html`, `/privacy.html`
+### Phase E-3: Amplify 배포 + 도메인 연결 ✅ 완료 (2026-06-17)
+- ✅ **Amplify Hosting 앱 생성** (Seoul 리전): GitHub `xxxxKangxxxx/Dreamteller` `main` 연동, amplify.yml 자동 인식(`baseDirectory: web`, 빌드 없음)
+- ✅ 배포 성공 → 기본 도메인 `https://main.d3fwlu8189l35m.amplifyapp.com` 3개 페이지 렌더 확인
+- ✅ **Custom domain `dreamteller.io.kr` 연결**: 루트 + www 모두 `main`, Amplify 관리형 SSL, Route 53 레코드 자동 생성. 리디렉션 없음(루트 직접 서빙)
+- ✅ **외부 검증 통과** (curl): `dreamteller.io.kr` / `/terms.html` / `/privacy.html` / `www` 모두 HTTP 200, `api.dreamteller.io.kr/health` 200 (백엔드 영향 없음)
+- 공개 URL 확정: `https://dreamteller.io.kr/terms.html`, `https://dreamteller.io.kr/privacy.html`
+
+### Phase E-4: 문의처 이메일 결정 ✅ (2026-06-17)
+- **결정**: 베타 단계는 **개인 Gmail `kang071911@gmail.com`**로 임시 운영. 정식 출시 때 `support@dreamteller.io.kr` 도메인 메일 구축
+- 이유: SES는 발신 전용이라 도메인 메일 수신은 Cloudflare Email Routing/Google Workspace 등 별도 인프라 필요 → 베타 50명 규모엔 과함
+- 약관/방침/랜딩/README의 문의처를 모두 `kang071911@gmail.com`으로 교체
+
+### 다음 (Phase E 마무리 — 앱 작업)
+- ⏳ **Settings 약관/방침 링크 실기기 동작 확인** — 코드(`SettingsScreen`)는 반영됨, 재빌드 필요 → Phase F production 빌드 때 함께 확인
 
 ### 차단점
-- 없음. Amplify 배포 + 도메인 연결만 콘솔에서 처리하면 Phase E 종료, 이후 Phase F(TestFlight)
+- 없음. Phase E 사실상 종료(웹/도메인/문의처 완료). 남은 건 Phase F(TestFlight)에서 재빌드 + Settings 링크 확인
 
 ---
 
@@ -731,13 +740,13 @@
 - ✅ Gmail 도달 + 인증 OK
 - ✅ **Naver 받은편지함 도달 + 인증 OK** ⭐ 5/3 built-in SMTP 실패 케이스 해결
 
-**Phase E — 약관/개인정보처리방침 + 랜딩 페이지** ⏳ 진행 중 (2026-06-17 착수)
+**Phase E — 약관/개인정보처리방침 + 랜딩 페이지** ✅ 사실상 완료 (2026-06-17)
 - ✅ 약관/방침 확정본 작성 (`docs/legal/TERMS.md`, `docs/legal/PRIVACY.md`) — Gemini 국외 전송 명시, AI 해몽 면책 조항 포함
 - ✅ 정적 HTML 사이트 작성 (`dreamteller/web/`: index/terms/privacy + styles.css + amplify.yml)
-- ⏳ GitHub push → Amplify Hosting GitHub 연동 자동 배포 (콘솔, 사용자 직접)
-- ⏳ Amplify custom domain `dreamteller.io.kr` 연결 (Route 53 자동 매핑, `api.` 레코드 유지)
-- ⏳ `support@dreamteller.io.kr` 수신 설정 (SES 발신 전용 → 별도 수신 라우팅)
-- ⏳ Settings 화면에서 약관/방침 링크 항목 추가 → 외부 브라우저 또는 in-app WebView
+- ✅ Amplify Hosting 배포 (GitHub `main` 연동, Seoul 리전)
+- ✅ Custom domain `dreamteller.io.kr` 연결 (루트+www → main, Amplify SSL, Route 53 자동, `api.` 유지) — 공개 URL 검증 통과
+- ✅ 문의처 이메일: 베타는 `kang071911@gmail.com` 임시, 정식 출시 때 `support@dreamteller.io.kr` 도메인 메일 구축
+- ✅ Settings 화면 약관/방침 링크 항목 추가 (코드 반영, 실기기 확인은 Phase F 재빌드 시)
 
 **Phase F — production 빌드 + TestFlight**
 - production 빌드 (`eas build --platform ios --profile production`) + EAS env production 등록

@@ -35,6 +35,6 @@ python3 -m http.server 5500
    - 이 URL을 App Store Connect 앱 정보 + 앱 내 Settings 링크에 사용
 
 ## 게시 전 체크
-- [ ] `support@dreamteller.io.kr` 수신 가능하게 설정 (SES는 발신 전용 → 수신은 별도: Cloudflare Email Routing / Google Workspace 등)
+- [x] 문의처 이메일 — 베타 단계는 `kang071911@gmail.com`(개인 Gmail)로 임시 운영. 정식 출시 때 `support@dreamteller.io.kr` 도메인 메일 구축 예정 (SES는 발신 전용이라 수신은 Cloudflare Email Routing / Google Workspace 등 별도 필요)
 - [ ] App Store **App Privacy** 입력값이 `privacy.html` 수집 항목과 일치
 - [ ] 유료 결제 도입 전 약관 법률 검수 (전자상거래법 반영)
