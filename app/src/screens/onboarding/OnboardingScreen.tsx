@@ -261,7 +261,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: {
-    ...textStyles.heading1,
+    ...textStyles.heading2,
+    fontSize: 26,
+    lineHeight: 34,
     color: colors.textPrimary,
   },
   body: {
