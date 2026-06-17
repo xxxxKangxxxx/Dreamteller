@@ -1,0 +1,163 @@
+/* DreamTeller — 정적 사이트 공통 스타일 (브랜드 토큰: docs/DESIGN_SYSTEM.md) */
+:root {
+  --primary: #6B3FA0;
+  --primary-light: #9575CD;
+  --primary-surface: #2D1B69;
+  --bg-base: #0D0D1A;
+  --bg-surface: #16213E;
+  --bg-elevated: #1E2A4A;
+  --text-primary: #E8E8F0;
+  --text-secondary: #A0A0C0;
+  --text-muted: #606080;
+  --border: #2A2A4A;
+  --border-light: #3A3A60;
+  --max-width: 760px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+               'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: var(--primary-light); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── 상단 네비 ───────────────────────────── */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+.nav .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+.nav .brand .moon { color: var(--primary-light); }
+.nav .links a { margin-left: 20px; font-size: 14px; color: var(--text-secondary); }
+
+/* ── 랜딩 히어로 ─────────────────────────── */
+.hero {
+  text-align: center;
+  padding: 96px 24px 80px;
+  background: radial-gradient(ellipse at 50% -10%, rgba(107, 63, 160, 0.35), transparent 60%);
+}
+.hero h1 {
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+.hero h1 .moon { color: var(--primary-light); }
+.hero p {
+  font-size: 18px;
+  color: var(--text-secondary);
+  max-width: 480px;
+  margin: 0 auto 36px;
+}
+.badge {
+  display: inline-block;
+  padding: 14px 28px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+}
+.badge.disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: default; }
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 64px auto 0;
+}
+.feature {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: left;
+}
+.feature h3 { font-size: 17px; margin-bottom: 8px; }
+.feature p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+
+/* ── 법률 문서 본문 ──────────────────────── */
+.doc {
+  padding: 48px 24px 96px;
+}
+.doc h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.doc .effective {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 40px;
+}
+.doc h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin: 40px 0 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.doc h2:first-of-type { border-top: none; padding-top: 0; }
+.doc p, .doc li { font-size: 15px; color: var(--text-primary); }
+.doc ol, .doc ul { padding-left: 22px; margin: 8px 0; }
+.doc li { margin-bottom: 6px; }
+.doc strong { color: #fff; }
+.doc .note {
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border-left: 3px solid var(--primary-light);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13.5px;
+}
+.doc th, .doc td {
+  border: 1px solid var(--border-light);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.doc th { background: var(--primary-surface); color: var(--text-primary); font-weight: 600; }
+
+/* ── 푸터 ────────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.footer a { color: var(--text-secondary); margin: 0 10px; }
+
+@media (max-width: 600px) {
+  .hero { padding: 64px 20px 56px; }
+  .hero h1 { font-size: 34px; }
+  .doc table { display: block; overflow-x: auto; white-space: nowrap; }
+}

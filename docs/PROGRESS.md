@@ -1,11 +1,38 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-17 (Phase D 완료 — SES + Custom SMTP + OTP 인증 + Phase C end-to-end 검증)
-> 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
+> 최종 업데이트: 2026-06-17 (Phase E 착수 — 약관/방침 확정본 + 정적 사이트 + Amplify 배포 구조)
+> 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트)
 
 ---
 
-## 오늘 세션 요약 (2026-06-15 ~ 06-17, Phase D 완료 + Phase C end-to-end 검증)
+## 오늘 세션 요약 (2026-06-17, Phase E 착수 — 약관/방침 + 정적 사이트)
+
+### Phase E-1: 약관/개인정보처리방침 확정본 ✅ 완료
+- `docs/legal/TERMS.md` (서비스 이용약관 12조 + 부칙) + `docs/legal/PRIVACY.md` (개인정보처리방침 11조) 작성
+- 실제 DB 스키마(profiles/dreams: 이메일·이름·꿈내용·감정·자각몽·대화내용)에 맞춰 수집 항목 기재
+- **핵심 1 — AI 해몽 면책** (약관 제6조): 해몽은 오락·자기성찰용이며 의학적·심리학적 진단/치료 아님 명시
+- **핵심 2 — 국외 이전/처리위탁** (방침 제5조): 꿈 내용이 Google Gemini(미국)로 전송됨을 표로 명시. Supabase·AWS는 서울 리전(ap-northeast-2). Gemini paid 티어라 모델 학습 미사용 문구 포함
+- 확정 값: 운영자 **강영모(개인)** (추후 사업자 등록 시 상호로 갱신) / 보호책임자 강영모 / 문의 **support@dreamteller.io.kr** / 시행일 **2026-07-01** / 관할 운영자 주소지 관할법원
+
+### Phase E-2: 정적 사이트 + Amplify 배포 구조 ✅ 완료 (배포는 콘솔 작업 대기)
+- `dreamteller/web/` 신규: `index.html`(랜딩) + `terms.html` + `privacy.html` + `styles.css`(브랜드 토큰 적용) + `README.md`(배포 가이드)
+- 게시본은 마크다운 원본의 "운영 메모" 블록 제외. 원본(편집용)은 `docs/legal/*.md` 유지 — 수정 시 양쪽 갱신
+- Pretendard CDN + DESIGN_SYSTEM 컬러(다크 퍼플 톤)로 온브랜드 구성
+- 리포 루트 `amplify.yml` 추가 (`baseDirectory: web`, 빌드 없는 정적 배포)
+- 로컬 검증: `python3 -m http.server`로 4개 경로 모두 HTTP 200, 약관 12조/방침 11조 렌더 확인
+
+### 다음 (Phase E 마무리 — 콘솔/앱 작업)
+- ⏳ **Amplify Hosting 콘솔 배포** (사용자 직접): GitHub 연동 → `main` 브랜치 → custom domain `dreamteller.io.kr` 연결 (Route 53 자동 매핑, `api.` 레코드는 건드리지 않음)
+- ⏳ **support@dreamteller.io.kr 수신 설정** (SES는 발신 전용 → Cloudflare Email Routing 등 별도)
+- ⏳ **Settings 화면에 약관/방침 링크 추가** (앱 내, 공개 URL 확정 후)
+- 공개 URL 예정: `https://dreamteller.io.kr/terms.html`, `/privacy.html`
+
+### 차단점
+- 없음. Amplify 배포 + 도메인 연결만 콘솔에서 처리하면 Phase E 종료, 이후 Phase F(TestFlight)
+
+---
+
+## 이전 세션 요약 (2026-06-15 ~ 06-17, Phase D 완료 + Phase C end-to-end 검증)
 
 ### Phase D — AWS SES + Custom SMTP + OTP 인증 ✅ 완료 (6/15~6/17)
 
@@ -704,12 +731,13 @@
 - ✅ Gmail 도달 + 인증 OK
 - ✅ **Naver 받은편지함 도달 + 인증 OK** ⭐ 5/3 built-in SMTP 실패 케이스 해결
 
-**Phase E — 약관/개인정보처리방침 + 랜딩 페이지**
-- 약관/방침 작성 (Gemini 데이터 전송 사실 명시 — CLAUDE.md Gemini 운영 주의사항 연결)
-- 정적 HTML 또는 Next.js로 페이지 작성
-- GitHub 저장소에 push → Amplify Hosting GitHub 연동 자동 배포
-- Amplify에서 custom domain `<도메인>` 연결 (Route 53 자동 매핑)
-- Settings 화면에서 약관/방침 링크 항목 추가 → 외부 브라우저 또는 in-app WebView
+**Phase E — 약관/개인정보처리방침 + 랜딩 페이지** ⏳ 진행 중 (2026-06-17 착수)
+- ✅ 약관/방침 확정본 작성 (`docs/legal/TERMS.md`, `docs/legal/PRIVACY.md`) — Gemini 국외 전송 명시, AI 해몽 면책 조항 포함
+- ✅ 정적 HTML 사이트 작성 (`dreamteller/web/`: index/terms/privacy + styles.css + amplify.yml)
+- ⏳ GitHub push → Amplify Hosting GitHub 연동 자동 배포 (콘솔, 사용자 직접)
+- ⏳ Amplify custom domain `dreamteller.io.kr` 연결 (Route 53 자동 매핑, `api.` 레코드 유지)
+- ⏳ `support@dreamteller.io.kr` 수신 설정 (SES 발신 전용 → 별도 수신 라우팅)
+- ⏳ Settings 화면에서 약관/방침 링크 항목 추가 → 외부 브라우저 또는 in-app WebView
 
 **Phase F — production 빌드 + TestFlight**
 - production 빌드 (`eas build --platform ios --profile production`) + EAS env production 등록

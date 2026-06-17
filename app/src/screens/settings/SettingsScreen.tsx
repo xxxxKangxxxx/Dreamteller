@@ -2,25 +2,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/store/authStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
+const TERMS_URL = 'https://dreamteller.io.kr/terms.html';
+const PRIVACY_URL = 'https://dreamteller.io.kr/privacy.html';
+
 export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleOpenURL = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('링크를 열 수 없어요', '잠시 후 다시 시도해 주세요.');
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말 로그아웃 할까요?', [
@@ -70,6 +81,13 @@ export function SettingsScreen() {
           <Text style={styles.profileEmail}>{user?.email ?? '-'}</Text>
         </Card>
 
+        <Text style={styles.sectionLabel}>약관 및 정책</Text>
+        <View style={styles.linkCard}>
+          <LinkRow label="서비스 이용약관" onPress={() => handleOpenURL(TERMS_URL)} />
+          <View style={styles.linkDivider} />
+          <LinkRow label="개인정보처리방침" onPress={() => handleOpenURL(PRIVACY_URL)} />
+        </View>
+
         <Text style={styles.sectionLabel}>계정</Text>
         <Button
           label="로그아웃"
@@ -81,6 +99,25 @@ export function SettingsScreen() {
         />
       </View>
     </SafeAreaView>
+  );
+}
+
+type LinkRowProps = {
+  label: string;
+  onPress: () => void;
+};
+
+function LinkRow({ label, onPress }: LinkRowProps) {
+  return (
+    <Pressable
+      style={styles.linkRow}
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+    >
+      <Text style={styles.linkLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -127,5 +164,26 @@ const styles = StyleSheet.create({
   profileEmail: {
     ...textStyles.body,
     color: colors.textSecondary,
+  },
+  linkCard: {
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.base,
+  },
+  linkLabel: {
+    ...textStyles.body,
+    color: colors.textPrimary,
+  },
+  linkDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.lg,
   },
 });
