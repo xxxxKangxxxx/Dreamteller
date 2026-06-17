@@ -41,9 +41,7 @@ export function HomeScreen() {
     <ScreenWrapper hasTabBar scrollable>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.greeting}>
-            {greeting.label} {greeting.emoji}
-          </Text>
+          <Text style={styles.greeting}>{greeting.label}</Text>
           <Pressable
             onPress={() => navigation.navigate('Settings')}
             hitSlop={12}
@@ -58,7 +56,7 @@ export function HomeScreen() {
 
       <Card variant="dream" padding="lg" style={styles.ctaCard}>
         <Text style={styles.ctaTitle}>오늘 꿈을 기록해볼까요?</Text>
-        <Text style={styles.ctaDesc}>Luna가 대화로 도와드릴게요 ✨</Text>
+        <Text style={styles.ctaDesc}>Luna가 대화로 도와드릴게요</Text>
         <Button
           label="기록 시작"
           onPress={() => navigation.navigate('RecordChat')}
