@@ -1,11 +1,87 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-05-29 (AWS 통합 인프라 Phase B 완료 + Phase C 부분 완료 + HomeScreen·Gemini title·RecordChat UI fix)
+> 최종 업데이트: 2026-06-17 (Phase D 완료 — SES + Custom SMTP + OTP 인증 + Phase C end-to-end 검증)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI)
 
 ---
 
-## 오늘 세션 요약 (2026-05-24 ~ 05-29, AWS Phase A·B 완료 + Phase C 진행 + UI/기능 fix 6개)
+## 오늘 세션 요약 (2026-06-15 ~ 06-17, Phase D 완료 + Phase C end-to-end 검증)
+
+### Phase D — AWS SES + Custom SMTP + OTP 인증 ✅ 완료 (6/15~6/17)
+
+#### 결정 변경: Resend → AWS SES (6/15)
+- 기존 PROGRESS 5/22 결정(Resend)을 뒤집고 AWS SES로 전환
+- 이유: AWS 통합 인프라 일관성(EC2/Route 53/IAM 단일 계정 관리) + 운영 비용 우위 + 한국 도달성 동일 수준
+- 트레이드오프: SES는 Sandbox 신청 단계 1회 필요 (Resend는 즉시 production) → 실제로 30분 만에 자동 승인되어 부담 미미
+
+#### Phase D-1: SES 도메인 identity + DNS (Seoul 리전, 6/15~6/16)
+- ✅ AWS 콘솔 region: 처음 Tokyo 안내했으나 **사용자 지적으로 Seoul(ap-northeast-2) 지원 재확인** → AWS 공식 문서로 Seoul SMTP endpoint 존재 확인 → Seoul 사용 (EC2/Route 53과 같은 리전, 운영 일관성 ↑)
+- ✅ SES Verified identity: `dreamteller.io.kr` (Easy DKIM RSA_2048_BIT, DKIM 서명 활성화)
+- ✅ Custom MAIL FROM: `mail.dreamteller.io.kr` (MX 실패 시 기본 MAIL FROM domain 사용)
+- ✅ Route 53 자동 발행 옵션 활성 → DKIM CNAME 3개 + MAIL FROM MX 1개 + MAIL FROM SPF TXT 1개 자동 추가
+- ✅ DMARC: SES UI의 "Route53에 DNS 레코드 게시" 버튼으로 자동 추가 (`v=DMARC1; p=none;`)
+- ✅ 검증: 도메인 status=확인됨 / DKIM=성공 / MAIL FROM=성공
+
+#### Phase D-2: SMTP credentials 발급 (6/16)
+- ✅ IAM 사용자 `ses-smtp-dreamteller-prod` 생성
+- ✅ IAM 그룹 `AWSSESSendingGroupDoNotRename` 자동 생성 + `ses:SendRawEmail` 최소 권한
+- ✅ SMTP credentials CSV 다운로드 (1회 노출)
+
+#### Phase D-3: Production access 신청 (6/16, 즉시 승인)
+- ✅ Case ID `178153647100105` 신청 → 4분 내 자동 승인 (도메인 검증 완료 + 트랜잭션 메일 use case)
+- ✅ 발신 한도: 일 200 → 50,000통 / 1초당 1 → 14통
+
+#### Phase D-4: Supabase Custom SMTP 연동 (6/16)
+- ✅ host `email-smtp.ap-northeast-2.amazonaws.com` / port 587 (STARTTLS) / SMTP credentials
+- ✅ sender `noreply@dreamteller.io.kr` (DreamTeller)
+- ✅ URL Configuration 점검 (기존 OAuth 흐름 위해 dreamteller://auth-callback 유지)
+
+#### Phase D-5: OTP 방식 전환 (Magic Link → OTP, 6/16) ⭐ 큰 결정
+- **계기**: Magic link 흐름 검증 중 사용자 지적 — "Mac Chrome에서 confirm 링크 클릭하면 빈 탭만 보이고 토큰 1회 소비됨. 데스크탑 fallback 페이지가 운영에 필수"
+- **결정**: 데스크탑 fallback 페이지(Amplify에 별도 페이지 추가) 만들기보다 **OTP 6자리 코드 방식**으로 전환. 이유:
+  - 데스크탑/모바일 동일 UX (이메일에서 코드 보고 앱에 입력)
+  - deep link / Universal Link 의존 X → `apple-app-site-association` 호스팅 불필요
+  - **Phase E 스코프 축소** — Amplify는 약관/방침/랜딩만 처리
+  - iOS `textContentType="oneTimeCode"` 자동 채움 지원 (메일 도착 시 키보드 위 6자리 suggestion)
+- **Supabase 메일 템플릿 변경**: Confirm signup 템플릿을 `{{ .Token }}` 6자리 표시 + 한국어 + Pretendard 톤
+- **클라이언트 변경 (5개 파일)**:
+  - `services/authService.ts` — `supabaseAuth.verifySignupOtp(email, token)` + `resendSignupOtp(email)` 추가
+  - `screens/auth/OtpVerifyScreen.tsx` — 신규 (6셀 + iOS 자동 채움 + 60s 재발송 쿨다운)
+  - `screens/auth/SignupScreen.tsx` — session=null 분기에서 OtpVerify로 navigate
+  - `navigation/types.ts` + `navigation/RootNavigator.tsx` — OtpVerify 라우트 등록
+- **Supabase Email OTP Length 8 → 6 변경**: Supabase 기본값이 8자리로 잡혀있어서 클라이언트(6자리)와 불일치 → 콘솔에서 6으로 변경 (Supabase Dashboard → Authentication → Providers → Email → Email OTP Length)
+
+#### Phase D-6: 실기기 end-to-end 검증 (6/16~6/17)
+- ✅ **Gmail 도달 + 인증 + 자동 로그인 통과** (`kang071911+sestest4@gmail.com`)
+- ✅ **Naver 도달 + 인증 + 자동 로그인 통과** (`dudah0719@naver.com`) — **받은편지함 도착** ⭐ deliverability 최상
+  - 5/3 built-in SMTP는 네이버 도달 실패했던 케이스 → SES + DKIM/SPF/DMARC 인증으로 해결
+- iOS 자동 채움(메일 도착 시 키보드 위 6자리 suggestion) 동작 확인
+
+### Phase C — 실기기 end-to-end 검증 ✅ 완료 (6/17)
+- 5/24부터 남아있던 Phase C 마지막 검증을 Phase D OTP 검증과 묶어서 처리
+- ✅ RecordChat 5단계 대화 통과
+- ✅ RecordSummary → 해몽 받기 → InterpretScreen 진입
+- ✅ InterpretScreen v2 카드 정상 표시: headline + key symbol 칩 + perspective pill + affirmation 박스
+- ✅ 홈에 새 dream이 Gemini가 생성한 한국어 명사구 title로 표시 (`21794bc` 5/29 백엔드 작업 검증)
+
+### 비용 점검
+- **베타 50명 기준 SES 월 비용 ~$0.01 (~₩15)** — 사실상 무료
+- 10만 명 규모도 월 ~$5 수준 (~₩7,000)
+- DreamTeller 비용 압도적 비중은 Gemini API (베타 월 ~$7), SES는 그 1% 수준
+
+### 결정 사항
+- **메일 인증 방식**: OTP 6자리 코드 확정 (Magic link 폐기) — Naver/Daum 등 한국 메인 메일 호환성 + 데스크탑 fallback 페이지 불필요
+- **SES Region**: Seoul (ap-northeast-2) — EC2/Route 53과 같은 리전
+- **MAIL FROM 도메인**: `mail.dreamteller.io.kr` (SPF/DMARC alignment)
+- **DMARC 정책**: `p=none` 시작 (모니터링), 베타 후 quarantine 검토
+- **Phase E 스코프 축소**: OTP 도입으로 `/auth-callback` 웹 페이지 / Universal Link 작업 불필요. Amplify는 약관/방침/랜딩만 처리
+
+### 차단점
+- 없음. Phase D + Phase C 모두 종료. 다음은 Phase E (약관/Amplify) + Phase F (TestFlight)
+
+---
+
+## 이전 세션 요약 (2026-05-24 ~ 05-29, AWS Phase A·B 완료 + Phase C 진행 + UI/기능 fix 6개)
 
 ### Phase A — AWS 계정 + 도메인 등록 + DNS 위임 ✅ 완료 (5/24)
 - AWS IAM 사용자 `dreamteller-admin` 셋업 (AdministratorAccess + MFA `dreamteller-Authenticator`)
@@ -598,7 +674,7 @@
 - 운영 비용 (베타): EC2 무료 1년 + Elastic IP 할당 인스턴스 무료 + Route 53 hosted zone $0.50/월 = **~$0.50/월**
 - 1년 후 비용: t4g.micro ~$6/월 + Route 53 $0.50/월 = **~$6.5/월**
 
-**Phase C — 클라이언트 EAS 환경변수 + 재빌드** ⏳ 부분 완료 (2026-05-24)
+**Phase C — 클라이언트 EAS 환경변수 + 재빌드** ✅ 완료 (2026-05-24 ~ 06-17)
 - ✅ **EAS env 등록 6개 (preview 3 + production 3)** — `eas env:create --environment {preview|production} --name X --value Y` 6번 실행
   - `EXPO_PUBLIC_API_BASE_URL` = `https://api.dreamteller.io.kr/api` (plaintext)
   - `EXPO_PUBLIC_SUPABASE_URL` = `https://votdhwgsjxpladlodqyy.supabase.co` (plaintext)
@@ -610,16 +686,23 @@
   - Apple credentials + Provisioning Profile 재사용 (Apple 재로그인 skip)
 - ✅ **iPhone 재설치 + 부팅 정상** — 이전 splash 멈춤 해소
 - ✅ **로그인 통과** — Supabase Auth(JWKS) + 백엔드 인증 양쪽 통신 OK
-- ⏳ **end-to-end 검증 남음** — 홈 진입 → RecordChat 5단계 → RecordSummary → 해몽 generate → InterpretScreen까지 실 디바이스에서 한 번 통과 필요
-  - 검증 통과 시 EC2 백엔드 + Gemini paid tier + Supabase 통합 동작 확정
+- ✅ **end-to-end 검증 통과** (2026-06-17) — Phase D OTP 검증과 묶어서 실기기에서 한 번에 처리
+  - RecordChat 5단계 → RecordSummary → 해몽 v2 generate → InterpretScreen 모두 정상
+  - Gemini title 자동 생성 (`21794bc`) EC2 배포 동작 확인
   - 백엔드 디버깅 명령: `ssh ubuntu@54.116.7.53 'sudo journalctl -u dreamteller -f'` (실시간 로그)
 
-**Phase D — Custom SMTP (Resend)**
-- Resend 가입 + API key 발급
-- Route 53에 SPF/DKIM TXT 레코드 추가 + Resend 도메인 검증
-- Supabase Authentication → Emails → SMTP Settings: host `smtp.resend.com`, port 587/465, user `resend`, password=API key, sender `noreply@<도메인>`
-- Supabase URL Configuration: Site URL `dreamteller://`, Redirect URL `dreamteller://auth-callback`
-- 시뮬레이터에서 Confirm email ON 재현 → 실제 메일 도달까지 검증
+**Phase D — AWS SES + Custom SMTP + OTP 인증** ✅ 완료 (2026-06-15 ~ 06-17)
+- ✅ 도메인 identity: `dreamteller.io.kr` (Seoul ap-northeast-2, Easy DKIM RSA 2048)
+- ✅ MAIL FROM domain: `mail.dreamteller.io.kr` (SPF/DMARC alignment)
+- ✅ DMARC: `_dmarc.dreamteller.io.kr` TXT (`v=DMARC1; p=none;`)
+- ✅ Production access 즉시 승인 (Case `178153647100105`) — 일 50,000통 / 1초당 14통
+- ✅ SMTP credentials: IAM 사용자 `ses-smtp-dreamteller-prod` (그룹 `AWSSESSendingGroupDoNotRename`, 권한 `ses:SendRawEmail`)
+- ✅ Supabase Custom SMTP 연동: host `email-smtp.ap-northeast-2.amazonaws.com` port 587 STARTTLS
+- ✅ OTP 6자리 인증 방식 (Magic link 폐기) — 데스크탑 fallback 페이지 불필요
+- ✅ 클라이언트: OtpVerifyScreen 신규 + SignupScreen OtpVerify navigate + authService verifySignupOtp/resendSignupOtp
+- ✅ Supabase Email OTP length 8 → 6 변경 (Authentication → Providers → Email)
+- ✅ Gmail 도달 + 인증 OK
+- ✅ **Naver 받은편지함 도달 + 인증 OK** ⭐ 5/3 built-in SMTP 실패 케이스 해결
 
 **Phase E — 약관/개인정보처리방침 + 랜딩 페이지**
 - 약관/방침 작성 (Gemini 데이터 전송 사실 명시 — CLAUDE.md Gemini 운영 주의사항 연결)
@@ -663,6 +746,31 @@
 ---
 
 ## 오류 및 해결 내역
+
+### [2026-06-16] Magic Link 데스크탑 fallback 부재 → OTP 6자리 방식으로 전환
+- **증상**: SES + Supabase Custom SMTP 연동 후 Gmail confirm 메일 수신 OK. 그러나 Mac Chrome에서 메일 안 confirm 링크 클릭 시 → Supabase HTTPS verify endpoint는 정상 처리되지만 `redirect_to=dreamteller://auth-callback`이 Mac에서 핸들러 없어 빈 탭만 표시. 토큰은 1회 소비된 상태로 무효화.
+- **원인**: Custom URL scheme(`dreamteller://`)은 모바일 OS에만 핸들러 등록됨. 데스크탑 사용자가 메일을 PC에서 보는 경우 UX 단절. 운영 단계에선 필수.
+- **해결 옵션 검토**:
+  - (a) Amplify Hosting에 `/auth-callback` 웹 페이지 추가 (User-Agent 감지 → 모바일이면 `dreamteller://` redirect / 데스크탑이면 "메일 인증 완료" 안내)
+  - (b) Universal Link (`apple-app-site-association` 호스팅 + iOS 등록)
+  - (c) **OTP 6자리 코드 방식** ⭐ 채택
+- **해결**: OTP 채택. Supabase Confirm signup 메일 템플릿을 `{{ .Token }}` 6자리 표시 + 한국어 + Pretendard 톤으로 변경. 클라이언트에 `OtpVerifyScreen` 신규 + SignupScreen에서 session=null이면 OtpVerify navigate. `supabaseAuth.verifySignupOtp(email, token)` + `resendSignupOtp(email)` 추가. `textContentType="oneTimeCode"` 적용으로 iOS 자동 채움(메일 도착 시 키보드 위 6자리 suggestion) 지원.
+- **부수 효과 (긍정)**: Phase E 스코프 축소 — `/auth-callback` 웹 페이지 + Universal Link 인프라(`apple-app-site-association`, Apple Team ID 등록) 모두 불필요. Naver/Daum 등 deep link 호환성 이슈 있는 메일 앱에서도 동일 UX 보장.
+- **재발 방지**: 앱+웹 둘 다 다루는 서비스가 아닌 한, **모바일 OTP가 magic link보다 항상 더 robust**한 선택. 처음 인증 흐름 설계할 때 OTP를 1순위로 검토.
+
+### [2026-06-16] Supabase Email OTP length 8자리 기본값 → 6으로 변경
+- **증상**: OTP 전환 후 첫 실기기 가입 테스트에서 메일에 도착한 코드가 8자리, 클라이언트 UI는 6셀로 구현됨 → 길이 불일치로 인증 불가
+- **원인**: Supabase 프로젝트의 Email OTP Length 설정이 기본 8자리로 잡혀있음 (프로젝트마다 디폴트 다를 수 있음, 6~10 사이 설정 가능)
+- **해결**: Supabase Dashboard → Authentication → Providers → Email → "Email OTP Length" 8 → 6 변경 → Save. 변경 즉시 적용, 클라이언트 빌드 재배포 불필요.
+- **결정 이유 (6 vs 8)**: 6자리 = 100만 조합 + Supabase rate limit + TTL 1시간 → brute force 사실상 불가. 보안 차이는 미미하고 iOS 자동 채움 / 업계 표준(Google Authenticator, Slack, Notion 등) / 사용자 입력 부담 모두 6자리가 우위.
+- **재발 방지**: Supabase OTP 설정은 프로젝트 생성 시점에 정해지고 콘솔에 명시적으로 보이지 않을 수 있음. OTP 도입 시 가장 먼저 점검할 항목.
+
+### [2026-06-16] 네이버 메일 `+` plus alias 미지원 → 메일 silently drop
+- **증상**: Gmail OTP 검증 통과 후 네이버 도달성 추가 검증 위해 `dudah0719+sestest1@naver.com` (plus alias)로 가입 시도. 네이버 받은편지함/스팸함 어디에도 메일 미도착.
+- **원인**: 네이버 메일은 RFC 5233 plus addressing(`user+tag@domain`) 미지원. 해당 주소를 "존재하지 않는 주소"로 인식 → bounce 또는 silently drop. (Gmail은 plus alias 지원해서 검증 가능했던 케이스)
+- **해결**: 본인 네이버 raw 주소(`dudah0719@naver.com`) 그대로 사용. 받은편지함에 정상 도달 + OTP 인증 통과.
+- **부수 영향**: alias 발송 1건이 SES bounce 카운트에 등록됐을 가능성 있음. 신규 계정 평판에 미미한 영향. AWS SES → 계정 대시보드 → 평판 지표에서 Bounce Rate 모니터링 권장 (5% 초과 시 위험).
+- **재발 방지**: 한국 메일(naver/daum/hanmail/kakao) 검증 시 plus alias 사용 X. 새 검증 케이스가 필요하면 별도 네이버 계정 신규 가입.
 
 ### [2026-04-30] Expo Go에서 Google OAuth 빈 화면 (ASWebAuthenticationSession 첫 navigation 멈춤)
 - **증상**: "Google로 계속하기" 탭 후 브라우저 시트가 떴는데 빈 화면. 주소창은 placeholder만 표시. Metro 로그에 `webBrowser result = {type: 'cancel', url: null}`만 찍힘 (사용자 취소로만 인식)
