@@ -1,7 +1,7 @@
 import type { RecordStep } from '@/store/recordStore';
 
 export const STEP_OPENING_QUESTIONS: Record<RecordStep, string> = {
-  1: '어젯밤 꿈 기억나? 먼저 꿈에서 어디에 있었는지 말해줘 🌙',
+  1: '어젯밤 꿈 기억나? 먼저 꿈에서 어디에 있었는지 말해줘',
   2: '거기서 누가 있었어? 아니면 혼자였어?',
   3: '그래서 어떤 일이 있었어? 기억나는 장면이 있으면 얘기해줘',
   4: '그때 어떤 감정이었어? 무서웠어, 신기했어, 아니면 다른 감정이었어?',
