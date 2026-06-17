@@ -2,8 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -64,17 +62,14 @@ export function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.flex}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.headerBlock}>
             <Text style={styles.title}>회원가입</Text>
-            <Text style={styles.subtitle}>꿈을 함께 풀어가요 🌙</Text>
+            <Text style={styles.subtitle}>꿈을 함께 풀어가요</Text>
           </View>
 
           <View style={styles.form}>
@@ -131,7 +126,7 @@ export function SignupScreen() {
             />
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -168,10 +163,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSurface,
     borderRadius: radius.md,
     paddingHorizontal: spacing.base,
+    paddingVertical: 0,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: colors.border,
     ...textStyles.body,
+    // 단일 행 입력창은 상속된 lineHeight가 있으면 iOS에서 수직 중앙이 틀어짐 → 해제
+    lineHeight: undefined,
+    textAlignVertical: 'center',
   },
   actions: {
     gap: spacing.sm,
