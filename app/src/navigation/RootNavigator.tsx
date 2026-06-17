@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '@/constants/colors';
 import { CharacterDetailScreen } from '@/screens/archive/CharacterDetailScreen';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
+import { OtpVerifyScreen } from '@/screens/auth/OtpVerifyScreen';
 import { SignupScreen } from '@/screens/auth/SignupScreen';
 import { DreamCardScreen } from '@/screens/interpret/DreamCardScreen';
 import { InterpretScreen } from '@/screens/interpret/InterpretScreen';
@@ -59,6 +60,7 @@ export function RootNavigator() {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} />
         </>
       )}
     </Stack.Navigator>

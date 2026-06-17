@@ -2,7 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -44,8 +43,9 @@ export function SignupScreen() {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      const trimmedEmail = email.trim();
       const result = await supabaseAuth.signUpWithEmail(
-        email.trim(),
+        trimmedEmail,
         password,
         name.trim(),
       );
@@ -53,16 +53,7 @@ export function SignupScreen() {
         await login(result);
         return;
       }
-      Alert.alert(
-        '확인 메일을 보냈어요',
-        '메일함에서 인증을 완료한 뒤 다시 로그인해주세요',
-        [
-          {
-            text: '로그인 화면으로',
-            onPress: () => navigation.navigate('Login'),
-          },
-        ],
-      );
+      navigation.navigate('OtpVerify', { email: trimmedEmail });
     } catch (err) {
       const message = err instanceof Error ? err.message : '회원가입에 실패했어요';
       showToast(message, 'error');

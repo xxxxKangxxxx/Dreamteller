@@ -70,6 +70,29 @@ export const supabaseAuth = {
     };
   },
 
+  async verifySignupOtp(email: string, token: string): Promise<SupabaseSessionResult> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'signup',
+    });
+    if (error || !data.session || !data.user) {
+      throw new Error(readErrorMessage(error, '인증 코드가 올바르지 않아요'));
+    }
+    return {
+      user: mapSupabaseUser(data.user),
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    };
+  },
+
+  async resendSignupOtp(email: string): Promise<void> {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) {
+      throw new Error(readErrorMessage(error, '인증 코드 재발송에 실패했어요'));
+    }
+  },
+
   async signInWithGoogle(): Promise<SupabaseSessionResult> {
     const redirectTo = Linking.createURL('auth-callback');
 

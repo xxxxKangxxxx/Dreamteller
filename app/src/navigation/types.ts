@@ -19,6 +19,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Login: undefined;
   Signup: undefined;
+  OtpVerify: { email: string };
   Onboarding: undefined;
   Welcome: undefined;
 };
