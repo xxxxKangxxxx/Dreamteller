@@ -13,8 +13,8 @@ export const RECORD_COMPLETE_SIGNAL = '[RECORD_COMPLETE]';
 export const FALLBACK_MESSAGES = {
   chatError: '연결에 실패했어요',
   interpretError:
-    '지금 꿈을 해석하는 데 시간이 좀 걸리고 있어요. 잠시 후 다시 시도해주세요 ✨',
-  illustrationError: '그림을 그리다가 잠이 들었나봐요 😴 나중에 다시 시도해볼게요',
+    '지금 꿈을 해석하는 데 시간이 좀 걸리고 있어요. 잠시 후 다시 시도해주세요',
+  illustrationError: '그림을 그리다가 잠이 들었나봐요. 나중에 다시 시도해볼게요',
   sessionExpired:
-    '30분 동안 움직임이 없어서 꿈나라에 다녀왔어요 🌙 다시 시작해볼까요?',
+    '30분 동안 움직임이 없어서 꿈나라에 다녀왔어요. 다시 시작해볼까요?',
 } as const;
