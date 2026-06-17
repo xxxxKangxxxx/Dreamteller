@@ -15,9 +15,10 @@ export function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.spacerTop} />
       <View style={styles.brandBlock}>
         <Text style={styles.logo}>DreamTeller</Text>
-        <Text style={styles.tagline}>대화하며 기록하는 꿈 ✨</Text>
+        <Text style={styles.tagline}>대화하며 기록하는 꿈</Text>
       </View>
       <View style={styles.actions}>
         <Button label="시작하기" onPress={() => navigation.navigate('Login')} fullWidth />
@@ -28,6 +29,7 @@ export function WelcomeScreen() {
           fullWidth
         />
       </View>
+      <View style={styles.spacerBottom} />
     </View>
   );
 }
@@ -38,9 +40,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
     padding: spacing.lg,
   },
-  brandBlock: {
+  spacerTop: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  spacerBottom: {
+    flex: 1.6,
+  },
+  brandBlock: {
     gap: spacing.sm,
   },
   logo: {
@@ -52,10 +58,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   actions: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.lg,
+    marginTop: spacing['3xl'],
     gap: spacing.sm,
   },
 });
