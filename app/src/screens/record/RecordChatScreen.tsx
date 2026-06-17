@@ -206,7 +206,6 @@ export function RecordChatScreen() {
             placeholder="꿈 이야기를 들려주세요"
             placeholderTextColor={colors.textMuted}
             multiline
-            editable={!isStreaming}
             onSubmitEditing={handleSend}
             blurOnSubmit={false}
           />
