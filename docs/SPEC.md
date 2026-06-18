@@ -34,10 +34,12 @@
   - Slide 3: "나만의 꿈 세계관을 아카이브로 쌓아가요"
 - 하단 "로그인 / 회원가입" 버튼
 
-#### LoginScreen
-- Apple 로그인 (iOS 필수)
-- Google 로그인
-- 이메일 로그인 (선택)
+#### LoginScreen / SignupScreen / OtpVerifyScreen
+- **이메일 + 6자리 OTP** 인증이 현재 주경로 (Magic Link에서 전환 — 데스크탑/모바일 동일 UX, 딥링크 의존 제거)
+  - SignupScreen: 이메일 입력 → Supabase가 OTP 메일 발송 → OtpVerifyScreen
+  - OtpVerifyScreen: 6셀 입력 (iOS `textContentType="oneTimeCode"` 자동 채움) + 60초 재발송 쿨다운
+- Apple / Google 소셜 로그인: 코드 존재 (OAuth dev-client 기반). 현재 OTP가 검증된 주경로
+- 인증 메일은 AWS SES Custom SMTP(`noreply@dreamteller.io.kr`)로 발송
 - 약관 동의 체크 (첫 로그인 시)
 
 ---
@@ -75,15 +77,16 @@ const { data: stats } = useMonthlyStats()
 - 상단: "X" 닫기 + 진행 단계 표시 (예: "2/5단계")
 - 하단 입력창: 텍스트 입력 + 전송 버튼
 
-**AI 대화 흐름 (단계별)**
+**AI 대화 흐름 (단계별)** — 이모지 없음 (Luna 프롬프트에서 이모지 금지)
 ```
-Step 1 (장소): "어젯밤 꿈에서 어디에 있었어? 🌙"
+Step 1 (장소): "어젯밤 꿈에서 어디에 있었어?"
 Step 2 (인물): "거기서 누가 있었어? 아니면 혼자였어?"
 Step 3 (사건): "무슨 일이 있었어? 기억나는 장면이 있어?"
 Step 4 (감정): "그때 어떤 감정이었어? 무서웠어, 신기했어, 아니면 다른 감정?"
-Step 5 (마무리): "이 정도면 충분해! 꿈을 정리해볼게 ✨"
-       → AI가 요약본 생성 후 RecordSummaryScreen으로 이동
+       → 감정(마지막 질문) 답변 턴에서 응답에 [RECORD_COMPLETE] 포함 → 추가 입력 없이 바로 마무리
+       → RecordSummaryScreen으로 이동
 ```
+> 백엔드 `_system_for_step` 마무리 분기는 `step>=4` (off-by-one 수정). 프롬프트 상세는 `docs/PROMPT_GUIDE.md`.
 
 **상태 (recordStore)**
 ```typescript
@@ -97,7 +100,7 @@ interface RecordSession {
 
 **API 연결**
 - 사용자 메시지 전송 시: `POST /api/interpret/chat` 호출
-- AI 응답 스트리밍 지원 (SSE)
+- **비-스트리밍 JSON 응답** (`{text, nextStep, complete}`). RN fetch가 SSE 미지원이라 SSE에서 전환. 백엔드가 Gemini chunk 누적 후 한 번에 반환, 클라는 typing dots로 대기 표시
 
 **특이사항**
 - 키보드 올라올 때 메시지 목록 자동 스크롤
@@ -150,6 +153,8 @@ const { data: interpretation, isLoading } = useInterpret(dreamId)
 
 ### 5. 드림 아카이브
 
+> ⚠️ **구현 상태**: 화면(`ArchiveScreen`/`CharacterDetailScreen`)·클라 서비스(`archiveService`)는 존재하나 **백엔드 `/archive/*` 라우트 미구현**. 등장인물/장소/태그 추출·집계 파이프라인 포함 추후 Phase. 아래는 목표 스펙.
+
 #### ArchiveScreen
 - 탭 3개: 등장인물 | 장소 | 테마
 - **등장인물 탭**: 캐릭터 카드 그리드 (이름 + 등장 횟수 + 최근 꿈)
@@ -194,7 +199,7 @@ const { data: interpretation, isLoading } = useInterpret(dreamId)
 - 일반 데이터 로딩: Skeleton 컴포넌트 사용
 
 ### 에러 처리
-- AI API 실패: "꿈 해석에 잠깐 문제가 생겼어요 🌙 다시 시도해볼게요" 토스트
+- AI API 실패: "꿈 해석에 잠깐 문제가 생겼어요. 다시 시도해볼게요" 토스트 (fallback 문구 이모지 제거됨)
 - 네트워크 오류: 하단 배너로 표시 (빨간 배경 아님 — 소프트하게)
 
 ### 애니메이션

@@ -10,7 +10,7 @@
 - **백엔드**: FastAPI (Python)
 - **DB / 인증 / 스토리지**: Supabase 풀 활용 (PostgreSQL + Auth + Storage)
 - **DB 접근**: Supabase Python Client SDK (Prisma 사용 안 함)
-- **인증**: Supabase Auth + 자체 JWT 별도 발급
+- **인증**: Supabase Auth (이메일 6자리 OTP). 백엔드는 Supabase JWT를 JWKS(ES256)로 검증 (자체 JWT 미발급)
 - **AI**: Google Gemini API — `gemini-2.5-flash` (해몽/대화/요약)
 - **AI 이미지 생성**: MVP 이후 별도 Phase
 

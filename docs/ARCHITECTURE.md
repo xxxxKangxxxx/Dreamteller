@@ -1,51 +1,57 @@
 # DreamTeller — 아키텍처 & 기술 스택
 
+> 실제 의존성(`app/package.json`, `server/requirements.txt`)과 운영 인프라 기준. 최종 갱신 2026-06-18.
+
 ## 확정 기술 스택
 
-### 앱 (React Native + Expo)
+### 앱 (React Native + Expo) — 실제 설치 버전
 ```
-React Native 0.74+
-Expo SDK 51+
+React Native 0.81.x
+Expo SDK 54                 # babel-preset-expo ~54
 TypeScript (strict)
-React Navigation v6         # 네비게이션
-Zustand                     # 글로벌 상태 관리
-React Query (TanStack)      # 서버 상태 & 캐싱
-Axios                       # HTTP 클라이언트
+@react-navigation/native v7 # 네비게이션
+Zustand v5                  # 글로벌 상태 관리
+@tanstack/react-query v5    # 서버 상태 & 캐싱
+@supabase/supabase-js v2    # Supabase Auth (이메일 OTP) SDK
+fetch (커스텀 request 래퍼)  # HTTP 클라이언트 (Axios 미사용, src/services/api.ts)
 Expo SecureStore            # 토큰 저장
-Expo Notifications          # 푸시 알림
-React Native Reanimated 3   # 애니메이션
-react-native-svg            # SVG 아이콘/일러스트
+react-native-reanimated v4 + react-native-worklets 0.5.x  # 애니메이션 (worklets 별도 패키지 필수)
 expo-image                  # 이미지 최적화
+react-native-view-shot + expo-media-library + expo-sharing # 해몽 카드 캡처/저장/공유
 ```
+> ⚠️ Reanimated v4는 `react-native-worklets`를 별도 의존성으로 요구. 환경 재구축 시 `babel-preset-expo`와 함께 명시적 설치 필요.
 
-### 백엔드 (FastAPI / Python)
+### 백엔드 (FastAPI / Python) — 실제 requirements
 ```
-Python 3.11+
-FastAPI
-Uvicorn                     # ASGI 서버
-google-generativeai         # Gemini SDK (gemini-2.5-flash)
-supabase-py                 # Supabase Python Client
-python-jose                 # JWT 처리
-pydantic                    # 데이터 검증
+Python 3.13 (venv)
+fastapi >= 0.115
+uvicorn[standard] >= 0.34   # ASGI 서버
+google-genai >= 1.0         # Gemini SDK (gemini-2.5-flash) — 신 google-genai 패키지
+supabase >= 2.10            # Supabase Python Client
+PyJWT >= 2.10               # JWT 검증 (PyJWKClient로 Supabase JWKS fetch, jose 미사용)
+pydantic-settings >= 2.7    # 환경변수 설정 (app/config.py)
 ```
 
 ### Supabase (DB + 인증 + 스토리지)
 ```
 Supabase PostgreSQL         # 메인 DB (Supabase Client SDK로 접근, Prisma 미사용)
-Supabase Auth               # 소셜 로그인 (Apple, Google) + 자체 JWT 발급
-Supabase Storage            # 이미지 파일 저장 (무료 1GB)
+Supabase Auth               # 이메일 6자리 OTP 인증 (Apple/Google 소셜은 코드 존재, 현재 OTP 주경로)
+                            # JWT는 ECC(P-256, ES256) 비대칭키 — 백엔드는 JWKS로 검증
+Supabase Storage            # 이미지 파일 저장 (MVP 이후 일러스트용)
 ```
 
-### 인프라 (권장)
+### 인프라 (실제 운영)
 ```
-Railway 또는 Render         # FastAPI 서버
-Supabase                    # DB + Auth + Storage
-Vercel                      # 웹앱 (추후)
+AWS EC2 + systemd           # FastAPI 서버 (api.dreamteller.io.kr)
+AWS SES (Seoul) + Custom SMTP # Supabase 인증 메일 발송 (noreply@dreamteller.io.kr)
+AWS Amplify Hosting (Seoul) # 정적 웹 (랜딩/약관/방침 — dreamteller.io.kr, web/)
+AWS Route 53                # DNS (dreamteller.io.kr)
+Supabase                    # DB + Auth (ap-northeast-2)
 ```
 
 ### MVP 이후 추가 예정
 ```
-AI 이미지 생성 API           # DALL-E 3 또는 Imagen (추후 결정)
+AI 이미지 생성 API           # 모델 선정 추후
 ```
 
 ---
@@ -56,13 +62,15 @@ AI 이미지 생성 API           # DALL-E 3 또는 Imagen (추후 결정)
 ```
 app/
 ├── src/
+│   ├── SplashScreen.tsx                  # 진입 스플래시
 │   ├── screens/
 │   │   ├── onboarding/
 │   │   │   ├── WelcomeScreen.tsx
 │   │   │   └── OnboardingScreen.tsx
 │   │   ├── auth/
 │   │   │   ├── LoginScreen.tsx
-│   │   │   └── SignupScreen.tsx
+│   │   │   ├── SignupScreen.tsx
+│   │   │   └── OtpVerifyScreen.tsx        # 이메일 6자리 OTP 인증
 │   │   ├── home/
 │   │   │   └── HomeScreen.tsx
 │   │   ├── record/
@@ -103,11 +111,13 @@ app/
 │   │   └── types.ts
 │   │
 │   ├── services/             # API 호출 레이어 (컴포넌트에서 직접 호출 금지)
-│   │   ├── api.ts            # Axios 인스턴스 & 인터셉터
+│   │   ├── api.ts            # fetch 기반 request 래퍼 + 토큰 주입
+│   │   ├── supabase.ts       # Supabase 클라이언트
+│   │   ├── authService.ts    # Supabase Auth (이메일 OTP) 래퍼
 │   │   ├── dreamService.ts
 │   │   ├── interpretService.ts
-│   │   ├── archiveService.ts
-│   │   └── authService.ts
+│   │   ├── statsService.ts
+│   │   └── archiveService.ts # ⚠️ /archive 호출하나 백엔드 라우트 미구현
 │   │
 │   ├── store/
 │   │   ├── authStore.ts
@@ -140,38 +150,30 @@ app/
 └── package.json
 ```
 
-### 백엔드 (`/server`)
+### 백엔드 (`/server`) — 실제 구조
 ```
 server/
 ├── app/
-│   ├── main.py               # FastAPI 앱 진입점
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── dreams.py
-│   │   ├── interpret.py
-│   │   └── archive.py
-│   │   # illustrations.py   ← MVP 이후 추가 예정
-│   │
+│   ├── main.py                 # FastAPI 진입점 (라우터 등록, CORS, 예외 핸들러, /health)
+│   ├── config.py               # pydantic-settings 환경변수 (.env)
+│   ├── routes/                 # APIRouter 모음 (main.py에서 prefix와 함께 include)
+│   │   ├── dreams.py           #   /api/dreams
+│   │   ├── interpret.py        #   /api/interpret (chat/generate/status/{dream_id})
+│   │   └── stats.py            #   /api/stats (monthly/usage)
+│   │                           #   ※ auth/archive 라우트는 미구현 (auth는 Supabase, archive는 추후)
+│   ├── deps/
+│   │   └── auth.py             # get_current_user_id — PyJWKClient로 Supabase JWT 검증
+│   ├── schemas/
+│   │   └── dream.py            # Pydantic 모델 (ChatMessage, Create/UpdateDreamPayload 등)
 │   ├── services/
-│   │   ├── gemini_service.py   # gemini-2.5-flash 호출 (해몽/대화/요약)
-│   │   └── supabase_service.py # Supabase Storage 업로드
-│   │
-│   ├── middleware/
-│   │   ├── auth.py             # JWT 검증
-│   │   └── rate_limit.py       # AI API 호출 제한
-│   │
-│   ├── models/
-│   │   ├── dream.py            # Pydantic 모델
-│   │   ├── user.py
-│   │   └── interpret.py
-│   │
-│   └── core/
-│       ├── config.py           # 환경변수 설정
-│       └── supabase.py         # Supabase 클라이언트 초기화
+│   │   ├── gemini_service.py   # gemini-2.5-flash 호출 (대화/해몽/제목), 503 retry
+│   │   └── supabase_client.py  # Supabase 클라이언트 (service_role)
+│   └── utils/
+│       ├── envelope.py         # success()/error() 응답 래퍼
+│       └── interpretation.py   # serialize_interpretation (payload v2 직렬화)
 │
 ├── requirements.txt
-├── .env.example
-└── Dockerfile
+└── venv/
 ```
 
 ---
@@ -258,23 +260,31 @@ create table public.dream_tags (
 
 ---
 
-## 환경변수 (.env.example)
+## 환경변수
 
+### 백엔드 `server/.env` (config.py가 읽는 항목)
 ```bash
-# FastAPI 서버
 PORT=8000
-JWT_SECRET=...
-JWT_REFRESH_SECRET=...
 
 # Gemini AI (반드시 gemini-2.5-flash 사용)
 GEMINI_API_KEY=...
-# ⚠️ 실사용자 서비스 전 반드시 유료 전환 (무료 티어: 일 20회 한도 + 프롬프트 구글 열람 가능)
+# ⚠️ 실사용자 서비스 전 반드시 유료 전환 (무료 티어: 일 20회 한도 + 프롬프트 구글 3년 열람 가능)
 
-# Supabase (DB + Auth + Storage)
-SUPABASE_URL=https://...
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...  # 서버에서 RLS 우회용
+# Supabase
+SUPABASE_URL=https://....supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...   # 서버에서 RLS 우회용
+# ※ JWT 검증은 SUPABASE_URL의 JWKS 엔드포인트로 처리 → JWT_SECRET 불필요
+```
+> `config.py`의 `Settings`는 `port` / `supabase_url` / `supabase_service_role_key` / `gemini_api_key`만 사용. extra는 무시(`extra="ignore"`).
 
-# MVP 이후 추가 예정
+### 앱 EAS env (production 빌드용)
+```
+API_BASE_URL            # https://api.dreamteller.io.kr/api
+SUPABASE_URL
+SUPABASE_ANON_KEY
+```
+
+### MVP 이후 추가 예정
+```bash
 # IMAGE_GEN_API_KEY=...
 ```
