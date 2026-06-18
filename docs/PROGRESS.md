@@ -1,11 +1,46 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-18 (Phase E 완료 + UI/프롬프트 폴리시 패스 + Phase F 착수)
+> 최종 업데이트: 2026-06-18 (문서 동기화 패스 — API/ARCHITECTURE/SPEC를 실제 구현 기준으로 갱신)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트)
 
 ---
 
-## 오늘 세션 요약 (2026-06-17~18, Phase E 완료 + UI/프롬프트 폴리시 + Phase F 착수)
+## 오늘 세션 요약 (2026-06-18, 문서 동기화 패스)
+
+### 핵심 문서를 실제 구현 기준으로 갱신 ⭐ (commit `79c74fe`)
+오래 갱신 안 된 기술 문서(API.md 4/21, ARCHITECTURE.md·SPEC.md 5/2)가 실제 코드와 벌어져 있어 전수 대조 후 정정.
+- **API.md** — 거의 전면 개정:
+  - base URL `api.dreamteller.app` → `api.dreamteller.io.kr`
+  - 실제 라우트(`dreams`/`interpret`/`stats` + `/health`)만 정확히 기술. `/auth/*` 백엔드 엔드포인트는 없음(Supabase Auth가 처리)으로 정정
+  - `/interpret/chat` **SSE → 비스트리밍 JSON**(`{text, nextStep, complete}`)
+  - 해몽 응답을 **payload v2 구조**(symbolAnalysis/psychologicalMeaning/unconsciousMessage 객체 + headline/keySymbols/detail/affirmation)로 갱신
+  - envelope·에러코드 실제값, stats의 `dreamTypeDistribution`·`topThemes` 빈 값 명시
+  - **미구현 섹션** 분리: `archive` / `subscriptions` / `illustrations`
+- **ARCHITECTURE.md** — 실제 버전·구조 반영:
+  - Expo SDK 54 / RN 0.81 / Reanimated v4 + react-native-worklets / @react-navigation v7 / zustand v5 / react-query v5 / fetch 래퍼(Axios 미사용)
+  - 백엔드 Python 3.13 / google-genai / PyJWT(JWKS) / pydantic-settings
+  - 백엔드 폴더 구조 `routes/`·`deps/`·`schemas/`·`utils/`·`config.py` (기존 `routers/middleware/models/core`는 오기였음)
+  - 인프라 EC2+systemd / SES Custom SMTP / Amplify / Route 53 (기존 Railway/Render/Vercel 권장은 폐기)
+  - env 항목 실제화(`SUPABASE_SERVICE_ROLE_KEY`, JWT_SECRET 불필요), 앱 구조에 OtpVerify/Splash 추가
+- **SPEC.md** — 로그인 **이메일 OTP** 흐름, 대화 **이모지 제거 + step>=4 완료**, chat **비스트리밍**, Archive **백엔드 미구현** 상태 메모, 에러 토스트 이모지 제거
+- **CLAUDE.md** — 인증 설명을 "Supabase JWT를 JWKS(ES256)로 검증, 자체 JWT 미발급"으로 정정
+
+### 작업 중 발견한 불일치 (후속 과제로 기록)
+- **Archive 백엔드 미구현**: 클라 `archiveService.ts`는 `/archive/characters·places·themes`를 호출하나 백엔드 라우트 없음 → 404. 화면(`ArchiveScreen`/`CharacterDetailScreen`)·스키마 테이블은 있으나 추출·집계 파이프라인 + 조회 라우트가 비어 있음
+- **Stats 부분 공백**: `dreamTypeDistribution`(dream_type 미수집), `topThemes`(테마 추출 미구현) 항상 빈 값
+- **Subscriptions**: 백엔드·인앱결제 미구현 (FREE/PREMIUM 분기만 존재)
+
+### 오늘 발생한 오류 및 해결 내역
+- 없음 (문서 전용 작업, 코드 변경 없음). git status는 4개 문서만 변경 → 커밋·푸시 정상 완료
+
+### 다음 세션 시작 시
+- Phase F 최우선 차단점 = **앱 아이콘 4종 교체**(현재 Expo placeholder) → production 빌드 → `eas submit` → TestFlight
+- Gemini 유료 전환(실서비스 전 필수)
+- 여유 시 Archive 백엔드 라우트 구현 착수(위 "불일치" 참조)
+
+---
+
+## 이전 세션 요약 (2026-06-17~18, Phase E 완료 + UI/프롬프트 폴리시 + Phase F 착수)
 
 ### Phase E 완료 — Amplify 배포 + 도메인 + 문의처
 - ✅ Amplify Hosting 배포(Seoul, GitHub `main` 연동, amplify.yml `baseDirectory: web`) + 기본 도메인 3페이지 렌더 확인
