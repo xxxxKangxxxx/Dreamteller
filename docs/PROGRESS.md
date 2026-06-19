@@ -46,6 +46,57 @@ Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion �
 
 ---
 
+## TestFlight 검증 계획 (다음 작업) ⭐
+
+> 실기기(아이폰 TestFlight 빌드 2)에서 직접 수행. 화면별 결과 확인 후 이 체크리스트에 반영.
+> 진행 방식: 검증은 사용자가 실기기로, 이슈 발견 시 Claude가 진단→코드 수정→tsc→재빌드 가이드. preview 빌드 한도 절약 위해 수정은 묶어서.
+
+### 0. 사전 준비
+- [ ] 백엔드 health `https://api.dreamteller.io.kr/health` 200
+- [ ] 테스트 계정 2개: ① 기존 데이터 보유(조회용) ② 신규 빈 이메일(가입 OTP용)
+- [ ] 기존 Expo preview 빌드 삭제 (같은 번들 ID 서명 충돌 방지)
+
+### 1. 앱 진입 / 비주얼
+- [x] 홈 화면 아이콘 (2026-06-19 확인 완료)
+- [ ] 스플래시 화면 정상
+- [ ] Onboarding(3단계) → Welcome 흐름
+- [ ] Pretendard 폰트 + 다크 퍼플 톤 깨짐 없음
+
+### 2. 인증 (Phase D 산출물 실검증)
+- [ ] 신규 가입: 이메일 → OTP 6자리 메일 수신 → OtpVerify 입력 → 자동 로그인
+- [ ] iOS OTP 자동 채움(키보드 위 6자리 suggestion)
+- [ ] 재발송 쿨다운(60s)
+- [ ] 기존 로그인 → 홈 진입
+- [ ] 앱 재시작 시 세션 유지
+
+### 3. 핵심 플로우 (꿈 기록 → 해몽) ⭐
+- [ ] RecordChat: Luna 첫 질문 → 5단계 대화, 이모지 없음, 키보드 가림/닫힘 없음
+- [ ] 감정(마지막) 답변 시 자동 마무리 → 추가 입력 없이 요약 이동 (step>=4 검증)
+- [ ] RecordSummary → "해몽 받기"
+- [ ] InterpretScreen: 별빛 로딩 → v2 카드(headline/key symbol 칩/perspective pill/affirmation), 깜빡임 없음
+- [ ] 홈에 Gemini 자동 생성 한국어 제목으로 새 꿈 표시
+
+### 4. 조회 화면
+- [ ] HomeScreen: 최근 꿈 최대 3개, 탭 → InterpretDetail 이동
+- [ ] InsightsScreen: 감정 분포 표시 (dreamTypeDistribution·topThemes는 빈 값이 정상 — 미구현)
+- [ ] DreamCardScreen: 미리보기 → 사진 저장 → 공유 시트
+
+### 5. Settings (PROGRESS 명시 확인 항목)
+- [ ] 약관 링크 → dreamteller.io.kr/terms.html 외부 브라우저 정상
+- [ ] 개인정보방침 링크 → /privacy.html 정상
+- [ ] 로그아웃 동작
+
+### 6. 알려진 공백 — "버그 아님" 확인 (우아한 처리만)
+- [ ] ArchiveScreen: 백엔드 404 → 에러/빈 상태 깔끔 처리(앱 죽지 않음)만 확인
+- [ ] CharacterDetail: Phase 2 보류 — 진입 경로 있으면 빈 화면 확인
+
+### 7. 결과 처리
+- [ ] 이슈 심각도 분류: 🔴 출시 차단 / 🟡 폴리시 / ⚪ Phase 2
+- [ ] 차단 이슈 → 코드 수정 후 preview 빌드 묶어서 재검증
+- [ ] 검증 결과 PROGRESS에 기록
+
+---
+
 ## 이전 세션 요약 (2026-06-18, 문서 동기화 패스)
 
 ### 핵심 문서를 실제 구현 기준으로 갱신 ⭐ (commit `79c74fe`)
