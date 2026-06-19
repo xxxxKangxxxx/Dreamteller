@@ -950,6 +950,18 @@ TestFlight 전 다듬기. 변경은 모아서 preview 빌드로 검증하는 방
 
 #### [11] Husky / Lint-staged (선택, 협업 확장 시)
 
+#### [12] 아침 꿈 알림 (모닝 푸시) ⭐ 신규 기능 제안
+- **컨셉**: 매일 아침 사용자에게 푸시 알림으로 "간밤의 꿈을 기록해보세요" 하고 물어봄 → 탭하면 바로 RecordChat 진입. 꿈은 깨고 나면 빠르게 사라지므로 **기상 직후 기록 유도**가 리텐션 핵심
+- **인프라 준비됨**: APNs Key는 5/22 EAS credentials 셋업 때 이미 자동 생성 ("push reminder 도입 대비"). `expo-notifications` 추가 필요
+- **구현 방향 (안)**:
+  - 1차(간단): **로컬 알림**(`expo-notifications`의 `scheduleNotificationAsync`, 매일 반복 트리거) — 서버 불필요, 사용자가 Settings에서 시간 설정(기본 예: 오전 8시). 빠르게 도입 가능
+  - 2차(고도화): **서버 푸시**(Expo Push API / APNs) — 개인화 메시지, A/B, 미기록 시 리마인드 등. 백엔드에 푸시 토큰 저장 + 스케줄러 필요
+  - 알림 탭 → deep link로 RecordChat 직행 (`expo-notifications` response listener)
+  - **권한 요청 UX**: 온보딩 또는 첫 기록 완료 후 자연스러운 시점에 알림 권한 요청 (앱 첫 진입 즉시 X)
+  - Settings에 "아침 알림" 토글 + 시간 선택 추가
+- **고려사항**: iOS 알림 권한 거부 시 fallback, 시간대(KST) 처리, 너무 잦은 알림은 역효과 → 1일 1회 기본
+- **권장 시점**: 1차(로컬 알림)는 MVP 출시 직후 리텐션 기능으로 빠르게, 2차(서버 푸시)는 사용자 늘어난 뒤
+
 ---
 
 ## 오류 및 해결 내역
