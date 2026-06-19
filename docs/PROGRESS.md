@@ -1,11 +1,52 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-18 (문서 동기화 패스 — API/ARCHITECTURE/SPEC를 실제 구현 기준으로 갱신)
+> 최종 업데이트: 2026-06-19 (앱 아이콘 제작 + production 빌드 + TestFlight 업로드 — Phase F 핵심 차단점 해소)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트)
 
 ---
 
-## 오늘 세션 요약 (2026-06-18, 문서 동기화 패스)
+## 오늘 세션 요약 (2026-06-19, 앱 아이콘 + Phase F production 빌드 + TestFlight) ⭐
+
+### 앱 아이콘 4종 제작 — SVG 코드로 직접 디자인 ⭐ (최우선 차단점 해소)
+Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion 이미지 AI(Midjourney/Nano Banana 등) 시도하다 **SVG 코드 직접 제작**으로 전환 — 플랫 미니멀 벡터라 코드가 더 정확/유연.
+- **디자인 확정**: 구름 가득한 밤하늘 + 빛나는 흰 별빛(파티클처럼 다수) + 구름에 아래쪽이 살짝 가려진 **노란 초승달**. 표정/이모티콘 없음. 배경 딥 네이비(`#050510`까지). 브랜드 토큰 컬러 사용
+- **원본 보존**: `app/assets/icon-master.svg` (편집용 — 색/구름/별 등 언제든 재수정 후 4종 재생성 가능)
+- **렌더 도구**: `brew install librsvg` → `rsvg-convert`로 SVG→PNG
+- **4종 산출** (`app/assets/`):
+  - `icon.png` (1024², **알파 없음** — App Store 반려 사유 사전 차단)
+  - `adaptive-icon.png` (1024², 달이 중앙 안전영역 안 → 마스킹돼도 보존)
+  - `splash-icon.png` (1024²)
+  - `favicon.png` (48²)
+- `app.json` 경로가 이미 이 파일명과 일치 → 설정 변경 불필요
+
+### Phase F — production 빌드 + TestFlight 업로드 ✅
+- ✅ `eas build --platform ios --profile production` 성공 — buildNumber 1→2 자동 증가, production env 3개 로드 확인
+  - **App Store용 프로비저닝 프로파일 신규 생성** (`94KYQL5SQ9`) — 기존 AdHoc(preview용)과 별개. distribution 인증서(`6AE1086ECA...`, 만료 2027-05-22)는 재사용
+  - `.ipa` 산출 완료
+- ✅ App Store Connect **앱 레코드 생성** — 스토어 등록명 `DreamTeller - AI가 들려주는 해몽` (브랜드명 'DreamTeller' 단독은 이미 선점됨. 홈 화면 아이콘 이름은 app.json의 `DreamTeller` 그대로 유지)
+- ✅ `eas submit --platform ios --profile production --latest` 성공
+  - App Store Connect API Key 자동 생성 (역할 **APP_MANAGER** — 최소 권한)
+  - 내부 테스트 그룹 `Team (Expo)` 자동 생성, `dudah0719@naver.com` 테스터 등록
+- ✅ TestFlight 빌드 2 "제출 준비 완료" — **썸네일에 새 초승달 아이콘 정상 표시 확인**
+- ✅ **실기기 설치 + 아이콘 확인 완료** — 본인 아이폰 TestFlight로 설치, 홈 화면 아이콘 양호
+
+### 막혔던 지점 & 해결
+1. **앱 이름 'DreamTeller' 선점됨** — App Store 등록명은 전세계 고유 필요. → `DreamTeller - AI가 들려주는 해몽`으로 설명어 붙여 해결 (홈 아이콘 이름은 별개라 영향 없음)
+2. **production은 새 프로비저닝 프로파일 필요** — 기존은 AdHoc(내부배포). App Store 빌드용은 종류가 달라 EAS가 자동 생성 (Y)
+3. **TestFlight 앱에 DreamTeller 안 뜸** — 기기 "미디어 및 구입 항목" 계정이 테스터(`dudah0719@naver.com`)와 일치해야 함. 네이버 메일 초대 링크 탭으로 해결
+4. **기존 Expo preview 빌드 삭제 가능 여부** — 같은 번들 ID라 서명 충돌 방지 위해 삭제 권장. 데이터는 Supabase(클라우드)라 손실 없음, 재로그인 시 복원
+
+### 다음 세션 시작 시
+- **App Store 공개 심사 제출**로 갈 경우 남은 것: 스크린샷 5컷(6.7") + 메타데이터 입력(`docs/appstore/METADATA.md` 활용) + **심사용 데모 계정**(OTP 가입 미리 완료한 계정 제공) + 수출규정 답변(`ITSAppUsesNonExemptEncryption:false` 설정됨)
+- TestFlight 내부 검증 잔여: 로그인/꿈기록/해몽/아카이브 end-to-end + Settings 약관·방침 링크 동작
+- 여유 시: Archive 백엔드 라우트 미구현(404) 착수
+
+### 오늘 발생한 코드 오류
+- 없음 (아이콘 에셋 + 빌드/배포 작업). 코드 변경은 아이콘 PNG 4종 + `icon-master.svg` 신규뿐
+
+---
+
+## 이전 세션 요약 (2026-06-18, 문서 동기화 패스)
 
 ### 핵심 문서를 실제 구현 기준으로 갱신 ⭐ (commit `79c74fe`)
 오래 갱신 안 된 기술 문서(API.md 4/21, ARCHITECTURE.md·SPEC.md 5/2)가 실제 코드와 벌어져 있어 전수 대조 후 정정.
@@ -689,12 +730,9 @@ TestFlight 전 다듬기. 변경은 모아서 preview 빌드로 검증하는 방
 
 #### [2] 디자인 에셋 + Pretendard 폰트
 - ✅ **Pretendard 도입** — 2026-05-07 완료 (정적 OTF 4종 + useFonts + SplashScreen 가드)
-- ⏳ **앱 아이콘** — 사용자 직접 제작 중. 첨부 시 아래 사양 준수
-  - `app/assets/icon.png` (1024×1024 PNG, 투명도 X, 모서리 라운드 X, RGB)
-  - `app/assets/adaptive-icon.png` (1024×1024 PNG, 투명도 OK, 중앙 66% 안전 영역)
-  - `app/assets/splash-icon.png` (1024×1024 또는 512×512 PNG, 투명도 OK)
-  - `app/assets/favicon.png` (48×48 PNG, 웹 미배포면 선택)
-- ⏳ **스플래시** — 아이콘 확정 후 `splash-icon.png` 교체로 자동 적용 (`app.json`의 splash 설정 그대로 사용)
+- ✅ **앱 아이콘** — 2026-06-19 완료. SVG 코드로 직접 제작(구름 속 노란 초승달 + 밤하늘 별빛). 원본 `app/assets/icon-master.svg` 보존 → `rsvg-convert`로 4종 재생성 가능
+  - `app/assets/icon.png` (1024², 알파 없음) / `adaptive-icon.png` / `splash-icon.png` / `favicon.png` 모두 교체 완료
+- ✅ **스플래시** — `splash-icon.png` 교체로 자동 적용
 
 #### [3] Gemini 운영 직전 유료 전환
 - ✅ **2026-05-22 paid tier 전환 완료** — AI Studio "Tier 1" 활성화 + 이중 cap (Cloud Billing 예산 ₩10,000 알림 + AI Studio 한도 ₩15,000 차단)
@@ -826,11 +864,14 @@ TestFlight 전 다듬기. 변경은 모아서 preview 빌드로 검증하는 방
 - ✅ 문의처 이메일: 베타는 `kang071911@gmail.com` 임시, 정식 출시 때 `support@dreamteller.io.kr` 도메인 메일 구축
 - ✅ Settings 화면 약관/방침 링크 항목 추가 (코드 반영, 실기기 확인은 Phase F 재빌드 시)
 
-**Phase F — production 빌드 + TestFlight**
-- production 빌드 (`eas build --platform ios --profile production`) + EAS env production 등록
-- App Store Connect 앱 등록 + 메타데이터 + 스크린샷
-- `eas submit --platform ios --latest` → TestFlight 업로드
-- 본인 + 1~2명 베타 테스터로 외부 테스트
+**Phase F — production 빌드 + TestFlight** ✅ 빌드/업로드 완료 (2026-06-19)
+- ✅ 앱 아이콘 4종 제작 (최우선 차단점 해소 — 위 [2] 참조)
+- ✅ production 빌드 성공 (`eas build`, buildNumber 2, App Store 프로비저닝 프로파일 `94KYQL5SQ9` 신규 생성)
+- ✅ App Store Connect 앱 레코드 생성 (등록명 `DreamTeller - AI가 들려주는 해몽`)
+- ✅ `eas submit` → TestFlight 업로드 (API Key APP_MANAGER 자동 생성, 그룹 `Team (Expo)`)
+- ✅ 실기기 TestFlight 설치 + 새 아이콘 확인 완료
+- ⏳ 남음: TestFlight end-to-end 검증(로그인/기록/해몽/아카이브/Settings 링크)
+- ⏳ App Store 공개 심사 제출 시: 스크린샷 + 메타데이터 + 심사용 데모 계정 + 수출규정 답변
 
 **예상 소요**: Phase A~B 1~2일 + Phase C 30분 + Phase D 1시간 + Phase E 반나절 + Phase F 1일. 총 ~1주일
 
