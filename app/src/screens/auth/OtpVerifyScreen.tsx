@@ -2,6 +2,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
   Pressable,
   StyleSheet,
@@ -25,6 +26,8 @@ type Route = RouteProp<RootStackParamList, 'OtpVerify'>;
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
+// 인증 성공 후 홈 전환이 너무 즉각적이지 않게 로딩을 최소 노출
+const MIN_VERIFY_LOADING_MS = 800;
 
 export function OtpVerifyScreen() {
   const navigation = useNavigation<Navigation>();
@@ -52,8 +55,14 @@ export function OtpVerifyScreen() {
     if (submitCode.length !== CODE_LENGTH || verifying) return;
     Keyboard.dismiss();
     setVerifying(true);
+    const startedAt = Date.now();
     try {
       const result = await supabaseAuth.verifySignupOtp(email, submitCode);
+      // 인증→로그인 전환이 깜빡하듯 빠르지 않도록 최소 로딩 시간 보장
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_VERIFY_LOADING_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_VERIFY_LOADING_MS - elapsed));
+      }
       await login(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : '인증에 실패했어요';
@@ -100,83 +109,92 @@ export function OtpVerifyScreen() {
             </Text>
           </View>
 
-          <View style={styles.codeWrapper}>
-            <TextInput
-              ref={inputRef}
-              value={code}
-              onChangeText={onChangeCode}
-              style={styles.hiddenInput}
-              keyboardType="number-pad"
-              maxLength={CODE_LENGTH}
-              textContentType="oneTimeCode"
-              autoComplete="one-time-code"
-              autoFocus
-              editable={!verifying}
-              caretHidden
-            />
-            <Pressable
-              style={styles.codeCells}
-              onPress={() => inputRef.current?.focus()}
-            >
-              {Array.from({ length: CODE_LENGTH }).map((_, i) => {
-                const char = code[i] ?? '';
-                const isActive = i === code.length;
-                return (
-                  <View
-                    key={i}
+          {verifying ? (
+            <View style={styles.verifyingBlock}>
+              <ActivityIndicator size="large" color={colors.primaryLight} />
+              <Text style={styles.verifyingText}>인증하고 있어요...</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.codeWrapper}>
+                <TextInput
+                  ref={inputRef}
+                  value={code}
+                  onChangeText={onChangeCode}
+                  style={styles.hiddenInput}
+                  keyboardType="number-pad"
+                  maxLength={CODE_LENGTH}
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  editable={!verifying}
+                  caretHidden
+                />
+                <Pressable
+                  style={styles.codeCells}
+                  onPress={() => inputRef.current?.focus()}
+                >
+                  {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+                    const char = code[i] ?? '';
+                    const isActive = i === code.length;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.codeCell,
+                          isActive && styles.codeCellActive,
+                          char && styles.codeCellFilled,
+                        ]}
+                      >
+                        <Text style={styles.codeChar}>{char}</Text>
+                      </View>
+                    );
+                  })}
+                </Pressable>
+              </View>
+
+              <View style={styles.actions}>
+                <Button
+                  label="인증하기"
+                  variant="primary"
+                  onPress={() => {
+                    void handleVerify();
+                  }}
+                  disabled={!canVerify}
+                  loading={verifying}
+                  fullWidth
+                />
+                <Pressable
+                  onPress={() => {
+                    void handleResend();
+                  }}
+                  disabled={cooldown > 0 || resending}
+                  style={styles.resendBlock}
+                  accessibilityRole="button"
+                >
+                  <Text
                     style={[
-                      styles.codeCell,
-                      isActive && styles.codeCellActive,
-                      char && styles.codeCellFilled,
+                      styles.resendText,
+                      (cooldown > 0 || resending) && styles.resendTextDisabled,
                     ]}
                   >
-                    <Text style={styles.codeChar}>{char}</Text>
-                  </View>
-                );
-              })}
-            </Pressable>
-          </View>
-
-          <View style={styles.actions}>
-            <Button
-              label="인증하기"
-              variant="primary"
-              onPress={() => {
-                void handleVerify();
-              }}
-              disabled={!canVerify}
-              loading={verifying}
-              fullWidth
-            />
-            <Pressable
-              onPress={() => {
-                void handleResend();
-              }}
-              disabled={cooldown > 0 || resending}
-              style={styles.resendBlock}
-              accessibilityRole="button"
-            >
-              <Text
-                style={[
-                  styles.resendText,
-                  (cooldown > 0 || resending) && styles.resendTextDisabled,
-                ]}
-              >
-                {cooldown > 0
-                  ? `재발송하기 (${cooldown}s)`
-                  : resending
-                    ? '재발송 중...'
-                    : '인증 코드 다시 받기'}
-              </Text>
-            </Pressable>
-            <Button
-              label="이메일 다시 입력하기"
-              variant="ghost"
-              onPress={() => navigation.goBack()}
-              disabled={verifying}
-              fullWidth
-            />
-          </View>
+                    {cooldown > 0
+                      ? `재발송하기 (${cooldown}s)`
+                      : resending
+                        ? '재발송 중...'
+                        : '인증 코드 다시 받기'}
+                  </Text>
+                </Pressable>
+                <Button
+                  label="이메일 다시 입력하기"
+                  variant="ghost"
+                  onPress={() => navigation.goBack()}
+                  disabled={verifying}
+                  fullWidth
+                />
+              </View>
+            </>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -211,6 +229,16 @@ const styles = StyleSheet.create({
   emailHighlight: {
     color: colors.primaryLight,
     fontFamily: typography.fonts.semibold,
+  },
+  verifyingBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.base,
+  },
+  verifyingText: {
+    ...textStyles.body,
+    color: colors.textSecondary,
   },
   codeWrapper: {
     position: 'relative',
