@@ -77,7 +77,7 @@ export function DreamCardScreen() {
         return;
       }
       await MediaLibrary.saveToLibraryAsync(uri);
-      showToast('사진 앱에 저장됐어요 ✨', 'success');
+      showToast('사진 앱에 저장됐어요', 'success');
     } catch {
       showToast('저장에 실패했어요', 'error');
     } finally {
