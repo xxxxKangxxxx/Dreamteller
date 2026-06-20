@@ -99,7 +99,7 @@ export function OtpVerifyScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.flex}>
+      <Pressable style={styles.flex} onPress={() => Keyboard.dismiss()} accessible={false}>
         <View style={styles.content}>
           <View style={styles.headerBlock}>
             <Text style={styles.title}>이메일 인증</Text>
@@ -196,7 +196,7 @@ export function OtpVerifyScreen() {
             </>
           )}
         </View>
-      </View>
+      </Pressable>
     </SafeAreaView>
   );
 }

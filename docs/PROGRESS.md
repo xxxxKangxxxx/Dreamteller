@@ -114,14 +114,15 @@ Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion �
 - ✅ #1 OTP 자동 인증 + 키보드 닫힘 **정상 동작 확인** (🔴 차단 해소)
 - ✅ #2 별빛 로더 / #3 토스트 가독성 **정상 확인**
 - iOS 자동채움: **휴대폰(SMS) 인증 도입 시 함께 검증**으로 보류 (이메일 OTP 자동채움은 들쭉날쭉, 출시 차단 아님)
-- 🆕 **이슈 4·5·6 발견** ↓
+- 🆕 **이슈 4·5·6·7 발견** ↓
 
 | 4 | 🟡 폴리시 | `OtpVerifyScreen` | OTP 자동 인증 후 홈 전환이 너무 즉각적(깜빡) | 인증 중 ActivityIndicator "인증하고 있어요..." 로딩 + 최소 노출 800ms |
 | 5 | 🟡 폴리시 | `RecordChatScreen` | 채팅 입력 텍스트가 박스 수직 중앙보다 살짝 아래 정렬 | input 스타일 `lineHeight: undefined` (Login/Signup과 동일 해법) |
 | 6 | 🟡 폴리시 | `DreamCardScreen` | "사진 앱에 저장됐어요 ✨" 토스트에 이모지 잔존 | ✨ 제거 |
+| 7 | 🟡 폴리시 | `OtpVerifyScreen` | OTP 화면에서 바깥 영역 터치해도 키보드 안 닫힘 | 배경 `Pressable` + `onPress={Keyboard.dismiss}` |
 
-**다음 빌드(build 4)에 포함**: #4 OTP 로딩, #5 채팅 입력 정렬, #6 토스트 이모지 (모두 tsc 통과)
-**다음 빌드 후 재검증**: 재발송 쿨다운 60s + #4·#5·#6
+**다음 빌드(build 4)에 포함**: #4 OTP 로딩, #5 채팅 입력 정렬, #6 토스트 이모지, #7 OTP 키보드 dismiss (모두 tsc 통과)
+**다음 빌드 후 재검증**: 재발송 쿨다운 60s + #4·#5·#6·#7
 > 빌드 절약: 잔여 빌드 2회. 재발송 쿨다운만 build 3에서 확인되면 build 4로 일괄 처리
 
 ---
