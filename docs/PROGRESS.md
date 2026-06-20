@@ -1,11 +1,53 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-19 (앱 아이콘 제작 + production 빌드 + TestFlight 업로드 — Phase F 핵심 차단점 해소)
+> 최종 업데이트: 2026-06-20 (TestFlight 실기기 검증 + 이슈 8건 수정 + 아침 알림 기능 + build 3·4 TestFlight)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트)
 
 ---
 
-## 오늘 세션 요약 (2026-06-19, 앱 아이콘 + Phase F production 빌드 + TestFlight) ⭐
+## 오늘 세션 요약 (2026-06-20, TestFlight 실기기 검증 + 폴리시 8건 + 아침 알림 기능) ⭐
+
+> 상세 검증 결과/이슈 표는 아래 "TestFlight 검증 계획" 섹션(섹션 1~7)에 인라인 반영됨.
+
+### TestFlight 실기기 검증 — 전 구간 완료 (build 2→3→4)
+- 통과: 앱 진입/비주얼, 로그인+세션유지, 꿈 기록→해몽(카드 3종·품질·홈 제목), 조회(Home/Insights/DreamCard 저장·공유), Settings(약관/방침/로그아웃), 공백 처리(Archive 404·CharacterDetail)
+- iOS OTP 자동채움: **휴대폰(SMS) 인증 도입 시 함께 검증**으로 보류 (출시 차단 아님)
+
+### 발견·수정 이슈 8건 (1 🔴 차단 + 7 🟡 폴리시) — 전부 코드 수정, tsc 통과
+1. 🔴 `OtpVerifyScreen` 신규 가입 OTP 입력 후 데드락 → 6자리 자동 인증 + 키보드 닫기 **(build 3에서 해소 확인)**
+2. 🟡 해몽 로딩 별빛 로더 안 보임 → RecordSummary에서 generate 대기 제거 **(확인)**
+3. 🟡 토스트 너무 투명 → 불투명 배경+보더+그림자 **(확인)**
+4. 🟡 OTP 인증→홈 전환 너무 빠름 → "인증하고 있어요" 로딩(최소 800ms) **(build 4 확인)**
+5/5'. 🟡 채팅 입력 수직 정렬 → input `lineHeight: 22`로 보정 (build 5 검증 대기)
+6. 🟡 사진 저장 토스트 ✨ 제거 **(build 4 확인)**
+7. 🟡 OTP 바깥 터치 키보드 닫기 **(build 4 확인)**
+8. 🟡 재발송 버튼 활성화 UI → `Button`(secondary) (build 5 검증 대기)
+
+### 신규 기능 — 아침 꿈 알림 1차 (로컬 알림) ⭐ 백로그 [12]
+- 매일 지정 시각 로컬 알림 → 탭하면 RecordChat 직행. Settings 토글+시간선택기. 기본 08:00, 1일 1회
+- `notificationService.ts` + `settingsStore.ts` + SettingsScreen + App.tsx. `@react-native-community/datetimepicker` 추가
+- **네이티브 모듈 추가 → 다음 빌드(build 5) 필수**, 거기서 end-to-end 검증
+
+### 빌드/배포
+- build 3 production + TestFlight 업로드(✅ 확인), build 4 production + TestFlight 업로드(✅) — **이번 달 14번째 빌드, EAS Free 잔여 1회** [[project_eas_build_budget]]
+- `eas.json` submit.production에 `ascAppId: 6781978062` 추가 → 비대화형 submit 가능
+- `docs/appstore/METADATA.md` 정정: 앱 이름 실등록명, 인증 모델(로그인=비밀번호 → OTP 심사 차단 아님)
+
+### 오늘 발생한 오류 및 해결 내역
+1. **`eas submit --non-interactive` 실패** — `Set ascAppId in the submit profile` → eas.json submit.production에 `ascAppId` 명시로 해결
+2. **`npx tsc`가 엉뚱한 tsc 설치** — bash cwd가 app이 아닌 상위로 바뀐 채 실행됨 → `cd app && npx tsc --noEmit`로 해결. 이후 tsc는 app 디렉터리에서 실행
+3. **#5 채팅 입력 정렬 과교정** — `lineHeight: undefined`가 이번엔 텍스트를 위로 올림 → 중간값 `lineHeight: 22`로 재보정 (build 5 검증 예정)
+- 코드 이슈 상세는 위 8건 표 참조. 그 외 빌드/submit은 정상
+
+### 다음 작업 (우선순위)
+1. **마지막 빌드(build 5, 잔여 1회)** — 누적분 #5'·#8 + 아침 알림 기능 포함 production 빌드 → submit. 이게 곧 App Store 출시 릴리스 빌드. (다음 세션 시작에서 논의 후 진행)
+2. **build 5 재검증** — #5' 채팅 입력 정렬 / #8 재발송 버튼 / 아침 알림 end-to-end(권한·예약·탭→RecordChat·시간 변경) / 재발송 쿨다운
+3. **App Store 심사 제출 준비** — 스크린샷 5컷(6.7"), 심사용 데모 계정(가입 완료+꿈 1~2건), 콘솔 입력(메타데이터/App Privacy/연령등급 **12+ 권장**), 빌드 첨부 → 제출
+4. (출시 후) Archive 백엔드 라우트 구현, Stats 공백, 2차 서버 푸시
+
+---
+
+## 이전 세션 요약 (2026-06-19, 앱 아이콘 + Phase F production 빌드 + TestFlight) ⭐
 
 ### 앱 아이콘 4종 제작 — SVG 코드로 직접 디자인 ⭐ (최우선 차단점 해소)
 Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion 이미지 AI(Midjourney/Nano Banana 등) 시도하다 **SVG 코드 직접 제작**으로 전환 — 플랫 미니멀 벡터라 코드가 더 정확/유연.
