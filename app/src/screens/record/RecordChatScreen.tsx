@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     color: colors.textPrimary,
     ...textStyles.body,
-    // 상속된 lineHeight(폰트×1.6)가 입력 텍스트를 아래로 밀어 수직 중앙이 틀어짐 → 해제
-    lineHeight: undefined,
+    // body 기본 lineHeight(15×1.6=24)는 살짝 아래, 자연값은 살짝 위로 보임 → 중간값으로 수직 중앙 보정
+    lineHeight: 22,
   },
   sendButton: {
     width: 40,

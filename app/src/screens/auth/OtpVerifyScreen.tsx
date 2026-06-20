@@ -164,27 +164,22 @@ export function OtpVerifyScreen() {
                   loading={verifying}
                   fullWidth
                 />
-                <Pressable
-                  onPress={() => {
-                    void handleResend();
-                  }}
-                  disabled={cooldown > 0 || resending}
-                  style={styles.resendBlock}
-                  accessibilityRole="button"
-                >
-                  <Text
-                    style={[
-                      styles.resendText,
-                      (cooldown > 0 || resending) && styles.resendTextDisabled,
-                    ]}
-                  >
-                    {cooldown > 0
-                      ? `재발송하기 (${cooldown}s)`
-                      : resending
-                        ? '재발송 중...'
-                        : '인증 코드 다시 받기'}
-                  </Text>
-                </Pressable>
+                <View style={styles.resendBlock}>
+                  {cooldown > 0 || resending ? (
+                    <Text style={[styles.resendText, styles.resendTextDisabled]}>
+                      {cooldown > 0 ? `재발송하기 (${cooldown}s)` : '재발송 중...'}
+                    </Text>
+                  ) : (
+                    <Button
+                      label="인증 코드 다시 받기"
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => {
+                        void handleResend();
+                      }}
+                    />
+                  )}
+                </View>
                 <Button
                   label="이메일 다시 입력하기"
                   variant="ghost"
