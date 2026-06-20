@@ -128,7 +128,12 @@ Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion �
 | 5' | 🟡 폴리시 | `RecordChatScreen` | (build4) 입력 텍스트가 이번엔 위로 올라감 — lineHeight 과교정 | `lineHeight: 22`로 중앙 재보정 (15×1.6=24는 아래, 자연값은 위) |
 | 8 | 🟡 폴리시 | `OtpVerifyScreen` | 쿨다운 종료 후 "인증 코드 다시 받기"가 텍스트라 활성화 티가 약함 | 활성화 시 `Button`(secondary, sm)으로 표시해 버튼답게 |
 
-**전략(빌드 절약, 잔여 1회)**: 지금 빌드하지 않음. build 4로 더 둘러보며 추가 수정/**신규 기능**까지 모은 뒤 **마지막 빌드 1회에 일괄** 반영 → 그게 곧 App Store 출시용 릴리스 빌드. (#5'·#8은 커밋 완료, tsc 통과)
+**전략(빌드 절약, 잔여 1회)**: 지금 빌드하지 않음. build 4로 더 둘러보며 추가 수정/**신규 기능**까지 모은 뒤 **마지막 빌드 1회에 일괄** 반영 → 그게 곧 App Store 출시용 릴리스 빌드.
+
+###### 마지막 빌드(build 5)에 누적된 항목 (전부 커밋·tsc 통과)
+- #5' 채팅 입력 정렬(lineHeight 22), #8 재발송 버튼 활성화 UI
+- 🆕 **신규 기능: 아침 꿈 알림 1차(로컬 알림)** — 백로그 [12] 참조. datetimepicker 네이티브 모듈 추가됨
+- 검증 대기: 위 + 알림(권한 요청/예약/탭→RecordChat/시간 변경) end-to-end
 
 ---
 
@@ -985,7 +990,12 @@ TestFlight 전 다듬기. 변경은 모아서 preview 빌드로 검증하는 방
 
 #### [11] Husky / Lint-staged (선택, 협업 확장 시)
 
-#### [12] 아침 꿈 알림 (모닝 푸시) ⭐ 신규 기능 제안
+#### [12] 아침 꿈 알림 (모닝 푸시) ⭐ — 1차(로컬 알림) 구현 완료 (2026-06-20, 다음 빌드 검증 대기)
+> ✅ 1차 로컬 알림 구현: `services/notificationService.ts`(권한/매일 예약/취소) + `store/settingsStore.ts`(AsyncStorage 저장) + SettingsScreen "알림" 섹션(토글 + 시간 선택기 `@react-native-community/datetimepicker`) + App.tsx 알림 탭→RecordChat 라우팅(콜드스타트 포함). 권한은 토글 ON 시 요청, 기본 08:00, 1일 1회. tsc 통과. **네이티브 모듈 추가(datetimepicker)라 다음 빌드 필수.**
+> 2차(서버 푸시)는 사용자 늘어난 뒤 별도.
+
+---
+##### (참고) 원안
 - **컨셉**: 매일 아침 사용자에게 푸시 알림으로 "간밤의 꿈을 기록해보세요" 하고 물어봄 → 탭하면 바로 RecordChat 진입. 꿈은 깨고 나면 빠르게 사라지므로 **기상 직후 기록 유도**가 리텐션 핵심
 - **인프라 준비됨**: APNs Key는 5/22 EAS credentials 셋업 때 이미 자동 생성 ("push reminder 도입 대비"). `expo-notifications` 추가 필요
 - **구현 방향 (안)**:
