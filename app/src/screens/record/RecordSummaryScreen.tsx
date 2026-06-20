@@ -22,7 +22,6 @@ import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import { useInvalidateDreams } from '@/hooks/queries/useDreams';
 import { dreamService } from '@/services/dreamService';
-import { interpretService } from '@/services/interpretService';
 import type { RootStackParamList } from '@/navigation/types';
 import { useRecordStore } from '@/store/recordStore';
 import { useUIStore } from '@/store/uiStore';
@@ -97,7 +96,8 @@ export function RecordSummaryScreen() {
         });
 
         if (mode === 'interpret') {
-          await interpretService.generate(dream.id);
+          // 해몽 생성은 기다리지 않고 바로 이동 — InterpretScreen의 useInterpret가
+          // 생성을 트리거하며 별빛 로더로 대기시간 전체를 덮는다 (체감 로딩 개선)
           await finalize();
           navigation.reset({
             index: 1,

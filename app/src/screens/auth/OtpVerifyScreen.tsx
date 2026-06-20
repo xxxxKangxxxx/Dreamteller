@@ -2,6 +2,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -47,11 +48,12 @@ export function OtpVerifyScreen() {
 
   const canVerify = code.length === CODE_LENGTH && !verifying;
 
-  const handleVerify = async () => {
-    if (!canVerify) return;
+  const handleVerify = async (submitCode: string = code) => {
+    if (submitCode.length !== CODE_LENGTH || verifying) return;
+    Keyboard.dismiss();
     setVerifying(true);
     try {
-      const result = await supabaseAuth.verifySignupOtp(email, code);
+      const result = await supabaseAuth.verifySignupOtp(email, submitCode);
       await login(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : '인증에 실패했어요';
@@ -80,6 +82,10 @@ export function OtpVerifyScreen() {
   const onChangeCode = (text: string) => {
     const next = text.replace(/\D/g, '').slice(0, CODE_LENGTH);
     setCode(next);
+    // 6자리가 채워지면 자동 인증 (number-pad 키보드엔 완료 키가 없어 버튼이 가려지는 데드락 방지)
+    if (next.length === CODE_LENGTH) {
+      void handleVerify(next);
+    }
   };
 
   return (

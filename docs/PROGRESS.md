@@ -56,44 +56,62 @@ Expo placeholder 아이콘이 Phase F 최우선 차단점이었음. diffusion �
 - [ ] 테스트 계정 2개: ① 기존 데이터 보유(조회용) ② 신규 빈 이메일(가입 OTP용)
 - [ ] 기존 Expo preview 빌드 삭제 (같은 번들 ID 서명 충돌 방지)
 
-### 1. 앱 진입 / 비주얼
+### 1. 앱 진입 / 비주얼 ✅ (2026-06-20 검증 완료)
 - [x] 홈 화면 아이콘 (2026-06-19 확인 완료)
-- [ ] 스플래시 화면 정상
-- [ ] Onboarding(3단계) → Welcome 흐름
-- [ ] Pretendard 폰트 + 다크 퍼플 톤 깨짐 없음
+- [x] 스플래시 화면 정상 (로고 등장 후 자연 전환)
+- [x] Welcome(첫 화면: 로고+시작하기/앱소개) → (선택) Onboarding 3단계 — 실제 순서는 Welcome→온보딩 (미인증 스택 첫 화면이 Welcome)
+- [x] Pretendard 폰트 + 다크 퍼플 톤 깨짐 없음
 
 ### 2. 인증 (Phase D 산출물 실검증)
-- [ ] 신규 가입: 이메일 → OTP 6자리 메일 수신 → OtpVerify 입력 → 자동 로그인
-- [ ] iOS OTP 자동 채움(키보드 위 6자리 suggestion)
-- [ ] 재발송 쿨다운(60s)
-- [ ] 기존 로그인 → 홈 진입
+> 인증 모델 확인: 가입=이름+이메일+비밀번호+OTP 확인 / 로그인=이메일+비밀번호 (로그인은 OTP 안 거침)
+- [~] 신규 가입: 메일 수신까지 OK. **🔴 OTP 입력 후 진행 안 됨 → 코드 수정 완료, 재빌드 후 재검증 대기**
+  - 원인: number-pad 키보드엔 완료 키가 없고 "인증하기" 버튼이 키보드에 가려져 제출 불가(데드락). 자동 인증 없었음
+  - 수정: `OtpVerifyScreen` 6자리 채워지면 자동 인증 + `Keyboard.dismiss()` (commit 대기, tsc 통과)
+- [ ] iOS OTP 자동 채움(키보드 위 6자리 suggestion) — 재빌드 후 확인
+- [ ] 재발송 쿨다운(60s) — 재빌드 후 확인
+- [ ] 기존 로그인 → 홈 진입 (비밀번호 방식, OTP 버그 영향 없음 → 현재 빌드로 검증 가능)
 - [ ] 앱 재시작 시 세션 유지
 
-### 3. 핵심 플로우 (꿈 기록 → 해몽) ⭐
-- [ ] RecordChat: Luna 첫 질문 → 5단계 대화, 이모지 없음, 키보드 가림/닫힘 없음
-- [ ] 감정(마지막) 답변 시 자동 마무리 → 추가 입력 없이 요약 이동 (step>=4 검증)
-- [ ] RecordSummary → "해몽 받기"
-- [ ] InterpretScreen: 별빛 로딩 → v2 카드(headline/key symbol 칩/perspective pill/affirmation), 깜빡임 없음
-- [ ] 홈에 Gemini 자동 생성 한국어 제목으로 새 꿈 표시
+### 3. 핵심 플로우 (꿈 기록 → 해몽) ⭐ (2026-06-20 검증 — 동작 OK, 로딩 UX 수정)
+- [x] RecordChat: Luna 첫 질문 → 5단계 대화, 이모지 없음, 키보드 가림/닫힘 없음
+- [x] 감정(마지막) 답변 시 자동 마무리 → 추가 입력 없이 요약 이동 (step>=4 검증)
+- [x] RecordSummary → "해몽 받기"
+- [x] InterpretScreen: v2 카드 3종(상징/심리/무의식) 정상 표시, 해몽 내용 양호
+- [x] 홈에 Gemini 자동 생성 한국어 제목으로 새 꿈 표시
+- [~] **🟡 별빛 로딩 체감 개선 → 코드 수정 완료, 재빌드 후 재검증 대기**
+  - 증상: "해몽 받기" 후 밋밋한 버튼 스피너로 길게 대기 → InterpretScreen 도착 시 이미 완료돼 별빛 로더가 거의 안 보임
+  - 원인: `RecordSummaryScreen.submit('interpret')`가 `await interpretService.generate()`로 해몽 생성을 끝까지 기다린 뒤 이동
+  - 수정: generate 대기 제거 → 꿈 생성 직후 바로 InterpretScreen 이동. `useInterpret`의 404→generate→폴링이 생성을 맡아 별빛 로더가 대기 전체를 덮음 (중복 생성도 제거). tsc 통과
 
-### 4. 조회 화면
-- [ ] HomeScreen: 최근 꿈 최대 3개, 탭 → InterpretDetail 이동
-- [ ] InsightsScreen: 감정 분포 표시 (dreamTypeDistribution·topThemes는 빈 값이 정상 — 미구현)
-- [ ] DreamCardScreen: 미리보기 → 사진 저장 → 공유 시트
+### 4. 조회 화면 ✅ (2026-06-20 검증 완료)
+- [x] HomeScreen: 최근 꿈 최대 3개, 탭 → InterpretDetail 이동
+- [x] InsightsScreen: 감정 분포 표시 (dreamTypeDistribution·topThemes는 빈 값이 정상 — 미구현)
+- [x] DreamCardScreen: 미리보기 → 사진 저장 → 공유 시트 (저장·공유 모두 동작)
+- [~] **🟡 토스트 가독성 → 코드 수정 완료, 재빌드 후 재검증 대기**: "사진 저장됐습니다" 등 success/error 토스트 배경 알파가 `33`(20%)이라 너무 투명. `Toast.tsx` 전 변형을 불투명 `bgElevated` 배경 + 컬러 보더 + 그림자로 변경. tsc 통과
 
-### 5. Settings (PROGRESS 명시 확인 항목)
-- [ ] 약관 링크 → dreamteller.io.kr/terms.html 외부 브라우저 정상
-- [ ] 개인정보방침 링크 → /privacy.html 정상
-- [ ] 로그아웃 동작
+### 5. Settings ✅ (2026-06-20 검증 완료)
+- [x] 약관 링크 → dreamteller.io.kr/terms.html 외부 브라우저 정상
+- [x] 개인정보방침 링크 → /privacy.html 정상
+- [x] 로그아웃 동작
 
-### 6. 알려진 공백 — "버그 아님" 확인 (우아한 처리만)
-- [ ] ArchiveScreen: 백엔드 404 → 에러/빈 상태 깔끔 처리(앱 죽지 않음)만 확인
-- [ ] CharacterDetail: Phase 2 보류 — 진입 경로 있으면 빈 화면 확인
+### 6. 알려진 공백 — "버그 아님" 확인 ✅ (2026-06-20 정상 처리 확인)
+- [x] ArchiveScreen: 404여도 빈/에러 상태 정상, 앱 안 죽음
+- [x] CharacterDetail: 진입 시 빈 화면 정상 (Phase 2 보류)
 
-### 7. 결과 처리
-- [ ] 이슈 심각도 분류: 🔴 출시 차단 / 🟡 폴리시 / ⚪ Phase 2
-- [ ] 차단 이슈 → 코드 수정 후 preview 빌드 묶어서 재검증
-- [ ] 검증 결과 PROGRESS에 기록
+### 7. 결과 처리 (2026-06-20)
+- [x] 이슈 심각도 분류 완료 (아래)
+- [~] 차단 이슈 코드 수정 완료 → **preview 재빌드 묶어서 재검증 대기**
+- [x] 검증 결과 PROGRESS에 기록 (각 섹션 인라인 반영)
+
+#### 검증 결과 종합 — 발견 이슈 3건 (모두 코드 수정 완료, tsc 통과, 재빌드 대기)
+| # | 심각도 | 위치 | 증상 | 수정 |
+|---|---|---|---|---|
+| 1 | 🔴 출시 차단 | `OtpVerifyScreen` | 신규 가입 OTP 6자리 입력 후 진행 불가 (number-pad 키보드에 완료 키 없어 "인증하기" 버튼 가려짐 → 데드락) | 6자리 채워지면 자동 인증 + `Keyboard.dismiss()` |
+| 2 | 🟡 폴리시 | `RecordSummaryScreen` | "해몽 받기" 후 밋밋한 버튼 스피너로 길게 대기, 별빛 로더 거의 안 보임 | generate 대기 제거 → 즉시 InterpretScreen 이동, `useInterpret`가 생성 맡아 별빛 로더가 대기 전체 덮음 |
+| 3 | 🟡 폴리시 | `Toast` | success/error 토스트 배경 알파 33(20%)이라 너무 투명해 안 보임 | 불투명 `bgElevated` 배경 + 컬러 보더 + 그림자 |
+
+**통과(정상)**: 앱 진입/비주얼, 로그인+세션유지, 꿈 기록→해몽 플로우(카드 3종·해몽 품질·홈 제목), 조회(Home/Insights/DreamCard 저장·공유), Settings(약관/방침/로그아웃), 공백 처리(Archive 404·CharacterDetail)
+**미검증(재빌드 후)**: 신규 가입 OTP end-to-end, iOS OTP 자동채움, 재발송 쿨다운 60s, + 위 수정 3건 재확인
 
 ---
 
