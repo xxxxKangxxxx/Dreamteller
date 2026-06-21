@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1284px; height: 2778px; overflow: hidden; }
+  body {
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(70% 50% at 50% -6%, rgba(123,79,176,0.42) 0%, rgba(13,13,26,0) 60%),
+      linear-gradient(180deg, #16142f 0%, #0D0D1A 52%, #08080e 100%);
+  }
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 12px 3px rgba(255,255,255,0.5);
+  }
+
+  /* 텍스트 블록 (세로 중앙) */
+  .text {
+    position: absolute;
+    top: 50%;
+    width: 520px;
+    transform: translateY(-50%);
+    z-index: 5;
+  }
+  .kicker {
+    color: #B59BE0;
+    font-weight: 700;
+    font-size: 32px;
+    letter-spacing: 8px;
+    margin-bottom: 28px;
+  }
+  .text h1 {
+    color: #F2F0FA;
+    font-weight: 800;
+    font-size: 58px;
+    line-height: 1.32;
+    letter-spacing: -1.8px;
+    margin-bottom: 34px;
+    text-shadow: 0 6px 40px rgba(0,0,0,0.45);
+  }
+  .text p {
+    color: #BDB6D8;
+    font-weight: 500;
+    font-size: 35px;
+    line-height: 1.62;
+    letter-spacing: -0.4px;
+  }
+
+  /* 글로우 */
+  .glow {
+    position: absolute;
+    top: 50%;
+    width: 1000px; height: 1000px;
+    transform: translateY(-50%);
+    background: radial-gradient(44% 42% at 50% 50%, rgba(149,117,205,0.30) 0%, rgba(149,117,205,0) 70%);
+    z-index: 1;
+  }
+
+  /* 3D 기기 */
+  .stage {
+    position: absolute;
+    inset: 0;
+    perspective: 2600px;
+    z-index: 3;
+  }
+  .phone {
+    position: absolute;
+    top: 50%;
+    width: 660px;
+    transform-style: preserve-3d;
+    border-radius: 62px;
+    box-shadow: 60px 60px 130px rgba(0,0,0,0.58), 0 0 0 2px rgba(181,155,224,0.18);
+  }
+  .phone .screen {
+    border-radius: 56px;
+    overflow: hidden;
+    border: 12px solid #1c1c34;
+  }
+  .phone img { display: block; width: 100%; }
+
+  /* ── 폰 좌 / 텍스트 우 ── */
+  body.phone-left .stage { perspective-origin: 38% 50%; }
+  body.phone-left .phone {
+    left: 80px;
+    transform: translateY(-50%) rotateY(15deg) rotateX(2deg);
+  }
+  body.phone-left .text   { left: 758px; width: 510px; text-align: left; }
+  body.phone-left .text h1 { font-size: 56px; }
+  body.phone-left .glow   { left: 140px; }
+
+  /* ── 폰 우 / 텍스트 좌 ── */
+  body.phone-right .stage { perspective-origin: 58% 50%; }
+  body.phone-right .phone {
+    right: 80px;
+    transform: translateY(-50%) rotateY(-15deg) rotateX(2deg);
+  }
+  body.phone-right .text  { left: 48px; text-align: left; }
+  body.phone-right .glow  { right: 60px; }
+</style>
+</head>
+<body class="__SIDE__">
+  <div class="star" style="width:9px;height:9px;top:180px;left:160px;opacity:.85"></div>
+  <div class="star" style="width:6px;height:6px;top:300px;left:1100px;opacity:.7"></div>
+  <div class="star" style="width:5px;height:5px;top:140px;left:760px;opacity:.65"></div>
+  <div class="star" style="width:7px;height:7px;top:2400px;left:300px;opacity:.6"></div>
+  <div class="star" style="width:6px;height:6px;top:2520px;left:1040px;opacity:.6"></div>
+  <div class="star" style="width:4px;height:4px;top:2300px;left:680px;opacity:.5"></div>
+
+  <div class="glow"></div>
+
+  <div class="stage">
+    <div class="phone"><div class="screen"><img src="__IMG__" /></div></div>
+  </div>
+
+  <div class="text">
+    <div class="kicker">DREAMTELLER</div>
+    <h1>__TITLE__</h1>
+    <p>__SUB__</p>
+  </div>
+</body>
+</html>

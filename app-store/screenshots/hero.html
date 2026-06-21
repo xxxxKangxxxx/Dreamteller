@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1284px; height: 2778px; overflow: hidden; }
+  body {
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+    position: relative;
+    overflow: hidden;
+    background: #08080e;
+  }
+
+  /* 2568px 와이드 하늘 장면. __SHIFT__ 로 좌(0)/우(-1284) 슬라이스 */
+  .pano {
+    position: absolute;
+    top: 0; left: 0;
+    width: 2568px; height: 2778px;
+    transform: translateX(__SHIFT__px);
+    background:
+      radial-gradient(48% 38% at 50% 30%, rgba(149,117,205,0.40) 0%, rgba(123,79,176,0.18) 38%, rgba(13,13,26,0) 66%),
+      radial-gradient(70% 50% at 50% -6%, rgba(123,79,176,0.40) 0%, rgba(13,13,26,0) 60%),
+      linear-gradient(180deg, #1a1736 0%, #0D0D1A 52%, #08080e 100%);
+  }
+
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 12px 3px rgba(255,255,255,0.55);
+  }
+
+  /* 캡션 — 각 1284 구역 중앙 상단 */
+  .caption {
+    position: absolute;
+    top: 200px;
+    width: 1284px;
+    text-align: center;
+    padding: 0 80px;
+    z-index: 6;
+  }
+  .cap-left  { left: 0; }
+  .cap-right { left: 1284px; }
+  .kicker {
+    color: #B59BE0;
+    font-weight: 700;
+    font-size: 36px;
+    letter-spacing: 9px;
+    margin-bottom: 32px;
+  }
+  .caption h1 {
+    color: #F2F0FA;
+    font-weight: 800;
+    font-size: 96px;
+    line-height: 1.3;
+    letter-spacing: -2.5px;
+    text-shadow: 0 6px 44px rgba(0,0,0,0.5);
+  }
+
+  /* 떠 있는 기기 아래 그림자 */
+  .shadow {
+    position: absolute;
+    top: 2050px; left: 1284px;
+    width: 1700px; height: 230px;
+    transform: translateX(-50%);
+    background: radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(40px);
+    z-index: 2;
+  }
+
+  /* 3D 무대 */
+  .scene {
+    position: absolute;
+    inset: 0;
+    perspective: 2800px;
+    perspective-origin: 50% 44%;
+    z-index: 4;
+  }
+  /* 가로로 누운 채 하늘에 떠 있는 기기 (상단=좌/1컷, 하단=우/2컷, 좌상→우하 대각) */
+  .hero {
+    position: absolute;
+    top: 1480px; left: 1284px;
+    width: 880px;                /* 세로 기준 폭 → rotateZ(-64)으로 가로(대각) 전환 */
+    transform: translate(-50%, -50%) rotateX(10deg) rotateZ(-64deg);
+    transform-style: preserve-3d;
+    border-radius: 70px;
+    box-shadow:
+      0 60px 120px rgba(0,0,0,0.55),
+      0 0 0 2px rgba(181,155,224,0.20),
+      0 0 90px rgba(149,117,205,0.25);
+  }
+  .hero .screen {
+    border-radius: 64px;
+    overflow: hidden;
+    border: 13px solid #1c1c34;
+  }
+  .hero img { display: block; width: 100%; }
+</style>
+</head>
+<body>
+  <div class="pano">
+    <div class="star" style="width:9px;height:9px;top:140px;left:200px;opacity:.9"></div>
+    <div class="star" style="width:6px;height:6px;top:300px;left:680px;opacity:.7"></div>
+    <div class="star" style="width:5px;height:5px;top:180px;left:1120px;opacity:.7"></div>
+    <div class="star" style="width:7px;height:7px;top:420px;left:360px;opacity:.6"></div>
+    <div class="star" style="width:6px;height:6px;top:240px;left:1640px;opacity:.7"></div>
+    <div class="star" style="width:9px;height:9px;top:160px;left:2120px;opacity:.85"></div>
+    <div class="star" style="width:5px;height:5px;top:360px;left:2360px;opacity:.6"></div>
+    <div class="star" style="width:4px;height:4px;top:300px;left:1980px;opacity:.5"></div>
+    <div class="star" style="width:6px;height:6px;top:470px;left:1420px;opacity:.55"></div>
+    <div class="star" style="width:5px;height:5px;top:2300px;left:520px;opacity:.5"></div>
+    <div class="star" style="width:6px;height:6px;top:2420px;left:2040px;opacity:.55"></div>
+    <div class="star" style="width:4px;height:4px;top:2250px;left:1300px;opacity:.45"></div>
+
+    <div class="caption cap-left">
+      <div class="kicker">DREAMTELLER</div>
+      <h1>흘려보낸<br>간밤의 꿈,</h1>
+    </div>
+    <div class="caption cap-right">
+      <div class="kicker">DREAMTELLER</div>
+      <h1>이제<br>붙잡으세요</h1>
+    </div>
+
+    <div class="shadow"></div>
+
+    <div class="scene">
+      <div class="hero"><div class="screen"><img src="__IMG__" /></div></div>
+    </div>
+  </div>
+</body>
+</html>

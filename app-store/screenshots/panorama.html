@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1284px; height: 2778px; overflow: hidden; }
+  body {
+    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, sans-serif;
+    position: relative;
+    overflow: hidden;
+    background: #08080e;
+  }
+
+  /* 2568px 와이드 장면. __SHIFT__ 로 좌(0)/우(-1284) 슬라이스 */
+  .pano {
+    position: absolute;
+    top: 0; left: 0;
+    width: 2568px; height: 2778px;
+    transform: translateX(__SHIFT__px);
+    background:
+      radial-gradient(60% 55% at 50% -4%, rgba(123,79,176,0.58) 0%, rgba(45,27,105,0.30) 34%, rgba(13,13,26,0) 64%),
+      linear-gradient(180deg, #16142f 0%, #0D0D1A 50%, #08080e 100%);
+  }
+
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 12px 3px rgba(255,255,255,0.5);
+  }
+
+  /* 캡션 — 각 1284 구역 중앙 */
+  .caption {
+    position: absolute;
+    top: 178px;
+    width: 1284px;
+    text-align: center;
+    padding: 0 80px;
+    z-index: 5;
+  }
+  .cap-left  { left: 0; }
+  .cap-right { left: 1284px; }
+  .kicker {
+    color: #B59BE0;
+    font-weight: 700;
+    font-size: 36px;
+    letter-spacing: 9px;
+    margin-bottom: 34px;
+  }
+  .caption h1 {
+    color: #F2F0FA;
+    font-weight: 800;
+    font-size: 92px;
+    line-height: 1.32;
+    letter-spacing: -2.5px;
+    text-shadow: 0 6px 44px rgba(0,0,0,0.5);
+  }
+
+  /* 중앙 글로우 (접합부 = 광원) */
+  .glow {
+    position: absolute;
+    top: 780px; left: 1284px;
+    width: 1300px; height: 1300px;
+    transform: translate(-50%, 0);
+    background: radial-gradient(42% 40% at 50% 42%, rgba(149,117,205,0.32) 0%, rgba(149,117,205,0) 70%);
+    z-index: 1;
+  }
+
+  /* 바닥 그림자 */
+  .floor {
+    position: absolute;
+    bottom: 200px;
+    width: 880px; height: 150px;
+    background: radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(24px);
+    z-index: 2;
+  }
+  .floor-a { left: 170px; }
+  .floor-b { left: 1130px; }
+
+  /* 3D 무대 — 두 기기를 같은 각도로 눕혀 가로 행 형성 */
+  .stage {
+    position: absolute;
+    inset: 0;
+    perspective: 3200px;
+    perspective-origin: 50% 40%;
+    z-index: 3;
+  }
+  .dev {
+    position: absolute;
+    top: 700px;
+    width: 940px;
+    transform-style: preserve-3d;
+    border-radius: 70px;
+    box-shadow: 70px 70px 140px rgba(0,0,0,0.6), 0 0 0 2px rgba(181,155,224,0.18);
+  }
+  .dev .screen {
+    border-radius: 64px;
+    overflow: hidden;
+    border: 13px solid #1c1c34;
+  }
+  .dev img { display: block; width: 100%; }
+
+  .dev-a {
+    left: 230px;
+    transform: rotateY(-20deg) rotateX(4deg);
+    z-index: 4;
+  }
+  .dev-b {
+    left: 1180px;
+    transform: rotateY(-20deg) rotateX(4deg) translateZ(-80px);
+    z-index: 3;
+  }
+</style>
+</head>
+<body>
+  <div class="pano">
+    <div class="star" style="width:9px;height:9px;top:130px;left:160px;opacity:.9"></div>
+    <div class="star" style="width:6px;height:6px;top:250px;left:760px;opacity:.75"></div>
+    <div class="star" style="width:5px;height:5px;top:110px;left:1180px;opacity:.7"></div>
+    <div class="star" style="width:7px;height:7px;top:360px;left:300px;opacity:.6"></div>
+    <div class="star" style="width:6px;height:6px;top:200px;left:1700px;opacity:.7"></div>
+    <div class="star" style="width:8px;height:8px;top:150px;left:2180px;opacity:.8"></div>
+    <div class="star" style="width:5px;height:5px;top:330px;left:2360px;opacity:.6"></div>
+    <div class="star" style="width:4px;height:4px;top:280px;left:1980px;opacity:.5"></div>
+    <div class="star" style="width:6px;height:6px;top:420px;left:1420px;opacity:.55"></div>
+
+    <div class="caption cap-left">
+      <div class="kicker">DREAMTELLER</div>
+      <h1>흘려보낸<br>간밤의 꿈,</h1>
+    </div>
+    <div class="caption cap-right">
+      <div class="kicker">DREAMTELLER</div>
+      <h1>AI와 대화하며<br>기록해요</h1>
+    </div>
+
+    <div class="glow"></div>
+    <div class="floor floor-a"></div>
+    <div class="floor floor-b"></div>
+
+    <div class="stage">
+      <div class="dev dev-a"><div class="screen"><img src="__IMG_A__" /></div></div>
+      <div class="dev dev-b"><div class="screen"><img src="__IMG_B__" /></div></div>
+    </div>
+  </div>
+</body>
+</html>
