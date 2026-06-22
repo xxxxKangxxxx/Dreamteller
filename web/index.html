@@ -4,10 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DreamTeller — AI가 함께하는 꿈 일기</title>
-  <meta name="description" content="대화형 AI가 꿈 기록을 도와주고, 해몽과 아카이브를 제공하는 감성 꿈 일기 앱 DreamTeller." />
+  <meta name="description" content="대화형 AI가 꿈 기록을 도와주고, 상징·심리·무의식 관점의 해몽과 아카이브를 제공하는 감성 꿈 일기 앱 DreamTeller." />
   <meta property="og:title" content="DreamTeller — AI가 함께하는 꿈 일기" />
   <meta property="og:description" content="꿈을 잊기 전에. AI가 먼저 물어보고, 당신만의 의미로 해석해드려요." />
   <meta property="og:type" content="website" />
+  <meta property="og:image" content="./assets/icon.png" />
+  <meta name="theme-color" content="#0D0D1A" />
+  <link rel="icon" href="./assets/favicon.png" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" as="style" crossorigin
         href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
@@ -15,35 +18,135 @@
 </head>
 <body>
   <nav class="nav">
-    <div class="brand"><span class="moon">🌙</span> DreamTeller</div>
+    <a class="brand" href="./index.html">
+      <img src="./assets/icon.png" alt="DreamTeller" class="brand-logo" />
+      <span>DreamTeller</span>
+    </a>
     <div class="links">
       <a href="./terms.html">이용약관</a>
       <a href="./privacy.html">개인정보처리방침</a>
     </div>
   </nav>
 
+  <!-- ── 히어로 ───────────────────────────────── -->
   <header class="hero">
-    <div class="container">
-      <h1><span class="moon">🌙</span> 꿈을 잊기 전에</h1>
-      <p>대화형 AI가 먼저 물어보고, 당신만의 의미로 해석해드려요.<br />꿈을 기록하고, 해몽하고, 나만의 꿈 세계관을 쌓아가세요.</p>
-      <span class="badge disabled">App Store 출시 예정</span>
+    <div class="hero-grid container">
+      <div class="hero-copy">
+        <span class="eyebrow">AI 꿈 일기</span>
+        <h1>꿈을 잊기 전에,<br />대화로 기록하세요</h1>
+        <p>
+          흐릿한 새벽의 기억을 AI가 먼저 물어보며 정리해드려요.
+          상징·심리·무의식 세 가지 관점의 해몽으로
+          꿈이 건네는 메시지를 발견하세요.
+        </p>
+        <!-- 출시 후: 아래 span을 App Store 링크 <a>로 교체하고 disabled 클래스를 제거하세요. -->
+        <div class="cta-row">
+          <span class="appstore-btn disabled" aria-disabled="true">
+            <svg class="apple" viewBox="0 0 384 512" aria-hidden="true">
+              <path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+            </svg>
+            <span class="appstore-text">
+              <small>곧 만나요</small>
+              <strong>App Store 출시 예정</strong>
+            </span>
+          </span>
+        </div>
+        <p class="hero-note">iOS 먼저 출시 · Android 추후 지원 예정</p>
+      </div>
 
-      <div class="features">
-        <div class="feature">
-          <h3>💬 대화형 기록</h3>
-          <p>AI가 질문을 던지며 흐릿한 꿈의 조각을 함께 또렷하게 정리해요.</p>
-        </div>
-        <div class="feature">
-          <h3>🔮 AI 해몽</h3>
-          <p>상징·심리·무의식 관점으로 꿈을 풀어주는 깊이 있는 해석을 받아보세요.</p>
-        </div>
-        <div class="feature">
-          <h3>📖 꿈 아카이브</h3>
-          <p>감정 분포와 반복되는 테마를 모아 나만의 꿈 인사이트를 발견해요.</p>
+      <div class="hero-visual">
+        <div class="phone hero-phone">
+          <img src="./assets/shot-home.png" alt="DreamTeller 홈 화면" />
         </div>
       </div>
     </div>
   </header>
+
+  <!-- ── 핵심 기능 ─────────────────────────────── -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">DreamTeller가 특별한 이유</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
+          </div>
+          <h3>대화형 기록</h3>
+          <p>AI 'Luna'가 장소·인물·사건·감정을 차례로 물어보며, 흐릿한 꿈의 조각을 또렷한 이야기로 정리해줘요.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.9 4.6L18.5 9l-3.6 3 1 4.8L12 14.6 8.1 16.8l1-4.8L5.5 9l4.6-1.4L12 3z"/></svg>
+          </div>
+          <h3>세 관점의 AI 해몽</h3>
+          <p>상징 분석·심리학적 의미·무의식의 메시지. 한국 전통 해몽과 융 심리학을 엮어 따뜻하고 깊이 있게 풀어드려요.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 0 1 2-2h3v18H6a2 2 0 0 1-2-2V5zm6-2h4v18h-4V3zm6 0h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2V3z"/></svg>
+          </div>
+          <h3>나만의 꿈 아카이브</h3>
+          <p>기록한 꿈이 쌓이면 감정 분포와 반복되는 테마가 보여요. 나만의 꿈 인사이트를 발견하세요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 사용 흐름 (스크린샷) ──────────────────── -->
+  <section class="section showcase">
+    <div class="container">
+      <h2 class="section-title">기록부터 해몽까지, 한 흐름으로</h2>
+      <p class="section-sub">매일 아침, 사라지기 전에 꿈을 붙잡는 가장 자연스러운 방법.</p>
+
+      <div class="show-row">
+        <div class="show-item">
+          <div class="phone"><img src="./assets/shot-record.png" alt="Luna와 대화하며 꿈 기록" /></div>
+          <div class="show-text">
+            <span class="step-no">STEP 1</span>
+            <h3>대화하며 기록</h3>
+            <p>빈 화면 앞에서 막막할 필요 없어요. Luna의 질문에 답하다 보면 꿈 한 편이 완성돼요.</p>
+          </div>
+        </div>
+
+        <div class="show-item reverse">
+          <div class="phone"><img src="./assets/shot-interpret.png" alt="상징·심리·무의식 해몽 카드" /></div>
+          <div class="show-text">
+            <span class="step-no">STEP 2</span>
+            <h3>깊이 있는 해몽</h3>
+            <p>핵심 심볼과 함께 상징·심리·무의식 세 장의 카드로, 꿈이 지금의 나에게 건네는 메시지를 읽어드려요.</p>
+          </div>
+        </div>
+
+        <div class="show-item">
+          <div class="phone"><img src="./assets/shot-home.png" alt="홈에서 최근 꿈 모아보기" /></div>
+          <div class="show-text">
+            <span class="step-no">STEP 3</span>
+            <h3>모아서 돌아보기</h3>
+            <p>제목·감정·해몽 완료 여부가 한눈에. 쌓인 꿈들 속에서 나도 몰랐던 패턴을 만나보세요.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 마무리 CTA ────────────────────────────── -->
+  <section class="cta-final">
+    <div class="container">
+      <h2>오늘 밤의 꿈, 내일 아침엔 이야기가 됩니다</h2>
+      <p>DreamTeller와 함께 당신만의 꿈 세계관을 쌓아가세요.</p>
+      <div class="cta-row center">
+        <span class="appstore-btn disabled" aria-disabled="true">
+          <svg class="apple" viewBox="0 0 384 512" aria-hidden="true">
+            <path fill="currentColor" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+          </svg>
+          <span class="appstore-text">
+            <small>곧 만나요</small>
+            <strong>App Store 출시 예정</strong>
+          </span>
+        </span>
+      </div>
+    </div>
+  </section>
 
   <footer class="footer">
     <div>
