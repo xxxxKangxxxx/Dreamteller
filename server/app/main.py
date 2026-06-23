@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.routes import dreams, interpret, stats
+from app.routes import account, dreams, interpret, stats
 from app.utils.envelope import error
 
 logging.basicConfig(
@@ -55,3 +55,4 @@ def health() -> dict[str, str]:
 app.include_router(dreams.router, prefix="/api/dreams", tags=["dreams"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(interpret.router, prefix="/api/interpret", tags=["interpret"])
+app.include_router(account.router, prefix="/api/account", tags=["account"])
