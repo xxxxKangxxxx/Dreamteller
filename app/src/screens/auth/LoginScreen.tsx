@@ -1,7 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useEffect, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,14 +26,28 @@ type Navigation = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 export function LoginScreen() {
   const navigation = useNavigation<Navigation>();
   const login = useAuthStore((s) => s.login);
+  const continueAsGuest = useAuthStore((s) => s.continueAsGuest);
   const showToast = useUIStore((s) => s.showToast);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [appleSubmitting, setAppleSubmitting] = useState(false);
+  const [guestSubmitting, setGuestSubmitting] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
 
-  const anySubmitting = submitting || googleSubmitting;
+  useEffect(() => {
+    let mounted = true;
+    void supabaseAuth.isAppleAvailable().then((available) => {
+      if (mounted) setAppleAvailable(available);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const anySubmitting = submitting || googleSubmitting || appleSubmitting || guestSubmitting;
   const canSubmit = email.trim().length > 0 && password.length >= 6 && !anySubmitting;
 
   const handleLogin = async () => {
@@ -59,6 +75,33 @@ export function LoginScreen() {
         showToast(message, 'error');
       }
       setGoogleSubmitting(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    if (anySubmitting) return;
+    setAppleSubmitting(true);
+    try {
+      const result = await supabaseAuth.signInWithApple();
+      await login(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Apple 로그인에 실패했어요';
+      if (message !== '로그인을 취소했어요') {
+        showToast(message, 'error');
+      }
+      setAppleSubmitting(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    if (anySubmitting) return;
+    setGuestSubmitting(true);
+    try {
+      await continueAsGuest();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '게스트로 시작하지 못했어요';
+      showToast(message, 'error');
+      setGuestSubmitting(false);
     }
   };
 
@@ -117,6 +160,18 @@ export function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
+            {Platform.OS === 'ios' && appleAvailable ? (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radius.md}
+                style={styles.appleButton}
+                onPress={() => {
+                  void handleAppleLogin();
+                }}
+              />
+            ) : null}
+
             <Button
               label="Google로 계속하기"
               variant="secondary"
@@ -133,6 +188,17 @@ export function LoginScreen() {
               variant="ghost"
               onPress={() => navigation.navigate('Signup')}
               disabled={anySubmitting}
+              fullWidth
+            />
+
+            <Button
+              label="로그인 없이 둘러보기"
+              variant="ghost"
+              onPress={() => {
+                void handleGuest();
+              }}
+              disabled={anySubmitting}
+              loading={guestSubmitting}
               fullWidth
             />
           </View>
@@ -185,6 +251,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
+  },
+  appleButton: {
+    height: 48,
+    width: '100%',
   },
   divider: {
     flexDirection: 'row',

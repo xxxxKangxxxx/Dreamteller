@@ -1,11 +1,63 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-22 (build 5 빌드+제출 + App Store **심사 제출 완료** + 웹 랜딩 개편 + iPad 스크린샷)
+> 최종 업데이트: 2026-06-23 (App Store **심사 반려 대응** — 코드 3종 + 콘솔 + 서버 재배포 + 답장/메타데이터. **빌드는 다음 사이클**)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
 
 ---
 
-## 오늘 세션 요약 (2026-06-22, build 5 + App Store 심사 제출 완료) ⭐⭐
+## 오늘 세션 요약 (2026-06-23, App Store 1차 반려 대응) ⭐⭐
+
+> **1.0 (build 5)가 심사 반려됨.** 거절 사유 5개 중 4개는 코드/설정으로 해결 완료, 1개(4.3 스팸)는 답장+메타데이터 재포지셔닝으로 대응. **EAS 월 빌드 한도 소진으로 재빌드·재제출은 다음 사이클로 보류.**
+
+### 거절 사유 5개 & 대응 현황
+| # | 가이드라인 | 대응 | 상태 |
+|---|---|---|---|
+| 1 | **4.3(b) 스팸** (운세앱 포화) | "운세앱 아닌 꿈 일기장" 답장 + 이름/설명/키워드에서 운세 뉘앙스 전면 제거 | ✅ 초안·메타 완료 |
+| 2 | **4.8 로그인** (Apple 누락) | Sign in with Apple 추가 (`expo-apple-authentication`, 네이티브 id_token) | ✅ 코드+콘솔 |
+| 3 | **5.1.1(v) 강제가입** | 게스트 모드(Supabase 익명 로그인) — 로그인 없이 핵심기능 | ✅ 코드+콘솔 |
+| 4 | **5.1.1(v) 계정삭제** | 인앱 계정 삭제 (설정→계정 삭제, 2단계 확인) + 서버 `DELETE /api/account` | ✅ 코드+서버배포 |
+| 5 | **2.1 데모계정** | 비번 `123456`로 정정 예정 + 게스트 모드로 사실상 해소 | ⬜ ASC 입력(빌드 후) |
+
+### 이번 세션 완료 내역
+- **앱 코드** (전부 로컬, **아직 미push** — 작업 마무리 때 push): `authService.ts`(Apple/익명/Google링크), `authStore.ts`(continueAsGuest/deleteAccount), `supabase.ts`(isAnonymous), `user.ts`, `LoginScreen`/`WelcomeScreen`(둘러보기+Apple버튼), `SettingsScreen`(게스트 회원가입+계정삭제), `app.json`(usesAppleSignIn+plugin). `npx tsc --noEmit` 통과
+- **서버**: `server/app/routes/account.py` + `main.py` 라우터 등록 → 커밋 `c35e3ed` push → **EC2 배포 완료**(git pull + `dreamteller.service` 재시작). 검증: `/health` 200, `DELETE /api/account` 토큰없이 401 ✅
+- **Supabase 콘솔(완료)**: Anonymous sign-ins ON / Apple provider ON+Client IDs=`com.dreamteller.app`(Secret Key 불필요-네이티브) / Manual linking ON
+- **메타데이터**(`docs/appstore/METADATA.md` 갱신): 이름 `DreamTeller - 꿈 일기장`, 부제 `AI와 함께 쓰고 간직하는 꿈`, 설명=적다·간직하다·돌아보다 루프+"운세/점/타로 아님" 명시, 키워드=운세성 단어 0
+- **App Review 통합 답장 영문 초안** 작성(5개 사유 전부, 공손+확실 톤) — ASC 재제출 시 붙여넣기
+
+### 데이터 모델 메모 (계정삭제 근거)
+- `auth.users → profiles → dreams/interpretations/characters/...` 전부 `on delete cascade`. 서버 `auth.admin.delete_user(user_id)` 한 방으로 전체 데이터 삭제됨(service_role 키 사용)
+
+### 게스트→정식 전환 한계 (의도된 설계)
+- Google 전환만 `linkIdentity`로 **데이터 보존**. Apple/이메일은 신규계정 경로(익명 id_token은 Supabase가 링크 미지원). 추후 Apple OAuth(Services ID) 콘솔 추가 시 Apple 전환도 보존 가능
+
+---
+
+## 🎯 다음 빌드 사이클 체크리스트 (EAS 한도 회복 후) ⭐
+
+> **순서대로.** 코드/콘솔/서버/메타는 이미 끝났으니, 아래는 **빌드가 있어야만** 가능한 잔여 작업.
+
+1. **로컬 앱·문서 변경 push** (작업 마무리 시 — 현재 11개 파일 미커밋 상태)
+2. **EAS production 빌드** (`cd app && eas build --platform ios --profile production`) — Apple 권한이 네이티브라 **재빌드 필수**, 한도 1회 소비
+3. **`eas submit --latest`** (submit은 빌드 한도 미소비)
+4. **실기기/TestFlight 검증** (3종):
+   - [ ] Sign in with Apple → Supabase Users에 `provider: apple` 생성 확인
+   - [ ] 둘러보기(게스트) → 로그인 없이 꿈 기록→해석 동작 / 설정에서 "Google로 회원가입" 시 기록 보존 확인
+   - [ ] 설정 → 계정 삭제 → 2단계 확인 → 삭제 후 Welcome 복귀 / Supabase Users·dreams row 삭제 확인
+5. **데모 계정 정상화**: `kangym071900@gmail.com` / `123456` 직접 로그인 검증 → ASC "앱 심사 정보"에 비번 정정
+6. **스크린샷 갱신**: 로그인 화면에 Apple 버튼 추가됨 → 메타 스크린샷 재촬영(6.5"+iPad). `app-store/screenshots/build.sh`/`build-ipad.sh` 재사용
+7. **계정 삭제 화면 녹화**(실기기) → ASC "앱 심사 정보" Notes에 첨부 (Apple 명시 요구)
+8. **ASC 메타 반영**: 이름/부제/프로모션/설명/키워드를 `METADATA.md` 최신본으로 교체
+9. **재제출 + Reply**: 빌드 첨부 후, App Review에 **통합 답장(영문)** 게시 — 4.3 반박 핵심
+10. (선택) Supabase **captcha**(Turnstile/hCaptcha) — 익명 로그인 어뷰징/Gemini 비용 방어. 출시 후 모니터링하며 도입
+
+### 보류/백로그 (기존)
+- 알림 콜드스타트→RecordChat 직행 / #8 OTP 재발송 버튼 검증 / 웹 컴포넌트화
+- Gemini 선불 잔액 0 = 전면 장애 → 예산 알림 설정
+
+---
+
+## 이전 세션 요약 (2026-06-22, build 5 + App Store 심사 제출 완료) ⭐⭐
 
 > **이번 세션의 핵심 = App Store 공개 심사 제출 완료.** DreamTeller 1.0.0 (build 5)가 "심사 대기 중(Waiting for Review)" 상태. 수동 출시라 승인 후 직접 공개.
 

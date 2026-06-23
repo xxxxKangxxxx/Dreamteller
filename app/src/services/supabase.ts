@@ -22,12 +22,14 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON
 });
 
 export function mapSupabaseUser(user: SupabaseUser): User {
+  const isAnonymous = user.is_anonymous === true;
   const metadataName = (user.user_metadata?.name as string | undefined) ?? undefined;
-  const fallbackName = user.email?.split('@')[0] ?? '사용자';
+  const fallbackName = isAnonymous ? '게스트' : user.email?.split('@')[0] ?? '사용자';
   return {
     id: user.id,
     email: user.email ?? '',
     name: metadataName ?? fallbackName,
     plan: 'FREE',
+    isAnonymous,
   };
 }

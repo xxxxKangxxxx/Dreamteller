@@ -6,4 +6,5 @@ export interface User {
   email: string;
   plan: Plan;
   avatarUrl?: string;
+  isAnonymous?: boolean;
 }

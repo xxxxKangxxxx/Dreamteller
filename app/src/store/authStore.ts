@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { tokenStorage } from '@/services/api';
-import { supabaseAuth } from '@/services/authService';
+import { authService, supabaseAuth } from '@/services/authService';
 import { mapSupabaseUser, supabase } from '@/services/supabase';
 import type { User } from '@/types/user';
 
@@ -12,7 +12,9 @@ interface AuthState {
   user: User | null;
   hydrate: () => Promise<void>;
   login: (params: { user: User; accessToken: string; refreshToken: string }) => Promise<void>;
+  continueAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
 }
 
@@ -61,6 +63,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await tokenStorage.setAccessToken(accessToken);
     await tokenStorage.setRefreshToken(refreshToken);
     set({ status: 'authenticated', user });
+  },
+
+  async continueAsGuest() {
+    const result = await supabaseAuth.continueAsGuest();
+    await tokenStorage.setAccessToken(result.accessToken);
+    await tokenStorage.setRefreshToken(result.refreshToken);
+    set({ status: 'authenticated', user: result.user });
+  },
+
+  async deleteAccount() {
+    // 유효한 세션(JWT)으로 서버에 삭제 요청 → auth.users 삭제(cascade)
+    await authService.deleteAccount();
+    try {
+      await supabaseAuth.signOut();
+    } catch {
+      // 이미 삭제된 계정이라 signOut이 실패할 수 있음 → 무시
+    }
+    await tokenStorage.clear();
+    set({ status: 'unauthenticated', user: null });
   },
 
   async logout() {

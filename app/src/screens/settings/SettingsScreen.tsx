@@ -13,9 +13,11 @@ import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { RootStackParamList } from '@/navigation/types';
+import { supabaseAuth } from '@/services/authService';
 import { requestNotificationPermission } from '@/services/notificationService';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useUIStore } from '@/store/uiStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -26,7 +28,14 @@ export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const deleteAccount = useAuthStore((s) => s.deleteAccount);
+  const login = useAuthStore((s) => s.login);
+  const showToast = useUIStore((s) => s.showToast);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  const isGuest = user?.isAnonymous === true;
 
   const reminderEnabled = useSettingsStore((s) => s.enabled);
   const reminderHour = useSettingsStore((s) => s.hour);
@@ -99,6 +108,59 @@ export function SettingsScreen() {
     ]);
   };
 
+  // 게스트 → Google 정식 계정 연결(linkIdentity). 기존 기록이 그대로 유지된다.
+  const handleLinkGoogle = async () => {
+    if (linkingGoogle) return;
+    setLinkingGoogle(true);
+    try {
+      const result = await supabaseAuth.signInWithGoogle();
+      await login(result);
+      showToast('회원가입이 완료됐어요. 기록이 안전하게 보관돼요.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '회원가입에 실패했어요';
+      if (message !== '로그인을 취소했어요') {
+        showToast(message, 'error');
+      }
+    } finally {
+      setLinkingGoogle(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '계정 삭제',
+      '계정과 모든 꿈 기록이 영구적으로 삭제돼요. 이 작업은 되돌릴 수 없어요. 정말 삭제할까요?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: () => {
+            // 실수 방지를 위한 2차 확인
+            Alert.alert('정말 삭제할까요?', '삭제하면 복구할 수 없어요.', [
+              { text: '취소', style: 'cancel' },
+              {
+                text: '영구 삭제',
+                style: 'destructive',
+                onPress: async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteAccount();
+                  } catch (err) {
+                    const message =
+                      err instanceof Error ? err.message : '계정 삭제에 실패했어요';
+                    showToast(message, 'error');
+                    setDeleting(false);
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -119,15 +181,38 @@ export function SettingsScreen() {
         <Card variant="default" padding="lg" style={styles.profileCard}>
           <View style={styles.profileRow}>
             <Text style={styles.profileName}>{user?.name ?? '익명'}</Text>
-            {user?.plan ? (
+            {!isGuest && user?.plan ? (
               <Badge
                 label={user.plan}
                 variant={user.plan === 'PREMIUM' ? 'premium' : 'count'}
               />
             ) : null}
           </View>
-          <Text style={styles.profileEmail}>{user?.email ?? '-'}</Text>
+          <Text style={styles.profileEmail}>
+            {isGuest ? '게스트로 이용 중' : user?.email ?? '-'}
+          </Text>
         </Card>
+
+        {isGuest ? (
+          <>
+            <Text style={styles.sectionLabel}>회원가입</Text>
+            <Card variant="default" padding="lg" style={styles.guestCard}>
+              <Text style={styles.guestHint}>
+                회원가입하면 지금까지의 꿈 기록이 안전하게 보관되고, 다른 기기에서도 이어볼 수 있어요.
+              </Text>
+              <Button
+                label="Google로 회원가입"
+                variant="primary"
+                onPress={() => {
+                  void handleLinkGoogle();
+                }}
+                loading={linkingGoogle}
+                disabled={linkingGoogle}
+                fullWidth
+              />
+            </Card>
+          </>
+        ) : null}
 
         <Text style={styles.sectionLabel}>알림</Text>
         <View style={styles.linkCard}>
@@ -181,14 +266,26 @@ export function SettingsScreen() {
         </View>
 
         <Text style={styles.sectionLabel}>계정</Text>
-        <Button
-          label="로그아웃"
-          variant="danger"
-          onPress={handleLogout}
-          loading={loggingOut}
-          disabled={loggingOut}
-          fullWidth
-        />
+        <View style={styles.accountActions}>
+          {!isGuest ? (
+            <Button
+              label="로그아웃"
+              variant="secondary"
+              onPress={handleLogout}
+              loading={loggingOut}
+              disabled={loggingOut || deleting}
+              fullWidth
+            />
+          ) : null}
+          <Button
+            label="계정 삭제"
+            variant="danger"
+            onPress={handleDeleteAccount}
+            loading={deleting}
+            disabled={deleting || loggingOut}
+            fullWidth
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -243,6 +340,16 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     gap: spacing.xs,
+  },
+  guestCard: {
+    gap: spacing.base,
+  },
+  guestHint: {
+    ...textStyles.body,
+    color: colors.textSecondary,
+  },
+  accountActions: {
+    gap: spacing.sm,
   },
   profileRow: {
     flexDirection: 'row',

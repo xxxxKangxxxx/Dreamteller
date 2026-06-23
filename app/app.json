@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dreamteller.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -53,6 +54,7 @@
         }
       ],
       "expo-font",
+      "expo-apple-authentication",
       "@react-native-community/datetimepicker"
     ],
     "extra": {
