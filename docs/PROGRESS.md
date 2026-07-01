@@ -1,11 +1,43 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-06-23 (App Store **심사 반려 대응** — 코드 3종 + 콘솔 + 서버 재배포 + 답장/메타데이터. **빌드는 다음 사이클**)
+> 최종 업데이트: 2026-07-01 (EAS 빌드 사이클 **재개** — Apple 로그인 프로파일 재생성 + **build 7 성공** + submit 진행. **다음은 submit 완료 후 TestFlight 검증부터**)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
 
 ---
 
-## 오늘 세션 요약 (2026-06-23, App Store 1차 반려 대응) ⭐⭐
+## 오늘 세션 요약 (2026-07-01, EAS 빌드 사이클 재개 — build 7 성공 + submit) ⭐⭐
+
+> **7월 진입으로 EAS 월 빌드 한도 회복** → 지난 세션 보류했던 반려 대응 빌드 사이클 재개. Apple 로그인 추가로 프로비저닝 프로파일을 재생성해야 했고, **build 7 성공 + submit 진행**까지 완료. 실기기 TestFlight 검증부터는 다음 세션.
+
+### 빌드 경과 (build 6 실패 → build 7 성공)
+- **build 6 실패** 🔴: `eas build --non-interactive`로 돌리니 EAS가 **기존 프로파일(2026-06-19, `94KYQL5SQ9`)을 그대로 재사용** → Xcode 서명 단계에서 `Provisioning profile doesn't support the Sign in with Apple capability / doesn't include com.apple.developer.applesignin entitlement`로 실패. (Xcode 단계까지 갔으니 **한도 1회 소비 추정**)
+- **원인**: 이번에 `usesAppleSignIn: true`로 `applesignin` entitlement가 추가됐는데, 6-19 프로파일엔 그 권한이 없음. capability 추가는 Apple Developer 포털을 건드려야 하는데 `--non-interactive`라 EAS가 못 함
+- **해결**: **대화형** `eas build`(--non-interactive 제거) → "Apple 계정 로그인?" **Y** → Apple ID(`dudah0719@naver.com`)+2FA(device) → EAS가 자동으로:
+  - `Synced capabilities: Enabled: Sign In with Apple` (App ID에 capability 활성화)
+  - 기존 프로파일 `94KYQL5SQ9`가 `no longer valid` → "원 프로파일 재사용?" **N** → "새 프로파일 생성?" **Y** → **새 프로비저닝 프로파일 `H92BSJM7VZ` 생성**(applesignin 포함)
+- **교훈** ⭐: 지난 빌드들은 `N`(Apple 로그인 안 함)으로도 됐던 건 **포털에 바꿀 게 없었기 때문**. **capability를 새로 추가한 뒤 첫 빌드는 반드시 대화형 + Apple 로그인(Y)** 으로 프로파일을 재생성해야 함. 한 번 켜두면 이후엔 다시 `N`으로 재사용 가능
+
+### build 7 성공 + submit
+- **build 7 성공**: buildNumber 6→7 자동증가(`appVersionSource: remote`), v1.0.0 `.ipa` 산출. distribution 인증서(`6AE1086ECA...`, 만료 2027-05-22) 재사용. Push Notifications 설정 확인. 빌드 전 `cd app && npx tsc --noEmit` 통과
+- **`eas submit --platform ios --profile production --latest --non-interactive`** 진행(백그라운드) → ASC App `6781978062`로 업로드. ASC API Key(`37MBC2QJC2`) 자동 사용. submit은 **빌드 한도 미소비**
+- ASC "빌드 업로드"에 아직 `1.0.0 (7)` 안 뜨는 건 정상(업로드/Apple 처리 중). 완료되면 "처리 중"→"완료"로 표시됨. **build 6은 실패라 업로드된 적 없어 목록에 없음**
+
+### TestFlight 검증 체크리스트 확정 (실기기 대기)
+> 실제 코드(`LoginScreen`/`SettingsScreen`/`authStore`) 기준으로 정리. 다음 세션에 실기기로 수행.
+- **① Apple 로그인**: 로그인 화면 "또는" 아래 검은 Apple 버튼(실기기+`isAppleAvailable`일 때만 노출) → 로그인 → Supabase Users에 `provider: apple` 생성 / 꿈 기록·해몽 / 세션 유지 / 재로그인 시 동일 계정
+- **② 게스트**: "로그인 없이 둘러보기" → 익명 유저(`is_anonymous:true`) 생성 / 로그인 없이 기록·해몽 / 설정에 "게스트로 이용 중"+"Google로 회원가입"(게스트는 로그아웃 버튼 없음) / **Google 회원가입 후 기록 보존**(linkIdentity) 확인
+- **③ 계정 삭제**: 설정→계정 삭제(빨강)→**2단계 확인**(삭제→영구 삭제)→Welcome 복귀 / Supabase Users 행 + dreams cascade 삭제 확인 / **화면 녹화**해서 ASC Notes 첨부(Apple 요구)
+
+### 다음 세션 시작점 (submit 완료 후부터) ⭐
+1. ASC "빌드 업로드"에 `1.0.0 (7)` **완료** 확인 → 버전에 build 7 첨부
+2. **TestFlight 실기기 검증 3종**(위 ①②③) — 이슈 나오면 진단→수정→tsc→다음 빌드에 일괄
+3. 데모 계정 `kangym071900@gmail.com` / `123456` 로그인 검증 → ASC "앱 심사 정보" 비번 정정
+4. 스크린샷 재촬영(로그인 화면 Apple 버튼 추가됨, 6.5"+iPad) + 계정삭제 화면 녹화
+5. ASC 메타 최신본(`METADATA.md`) 교체 → **재제출 + App Review 통합 답장(영문) 게시**
+
+---
+
+## 이전 세션 요약 (2026-06-23, App Store 1차 반려 대응) ⭐⭐
 
 > **1.0 (build 5)가 심사 반려됨.** 거절 사유 5개 중 4개는 코드/설정으로 해결 완료, 1개(4.3 스팸)는 답장+메타데이터 재포지셔닝으로 대응. **EAS 월 빌드 한도 소진으로 재빌드·재제출은 다음 사이클로 보류.**
 
@@ -33,14 +65,14 @@
 
 ---
 
-## 🎯 다음 빌드 사이클 체크리스트 (EAS 한도 회복 후) ⭐
+## 🎯 빌드 사이클 체크리스트 (진행 상황) ⭐
 
-> **순서대로.** 코드/콘솔/서버/메타는 이미 끝났으니, 아래는 **빌드가 있어야만** 가능한 잔여 작업.
+> **순서대로.** 1~3은 2026-07-01 완료. 4번(TestFlight 검증)부터가 다음 세션 시작점.
 
-1. **로컬 앱·문서 변경 push** (작업 마무리 시 — 현재 11개 파일 미커밋 상태)
-2. **EAS production 빌드** (`cd app && eas build --platform ios --profile production`) — Apple 권한이 네이티브라 **재빌드 필수**, 한도 1회 소비
-3. **`eas submit --latest`** (submit은 빌드 한도 미소비)
-4. **실기기/TestFlight 검증** (3종):
+1. ✅ ~~로컬 앱·문서 변경 push~~ — 반려대응 코드는 지난 커밋(`3bb98c2`)에 이미 push됨
+2. ✅ **EAS production 빌드** — build 6 실패(Apple 프로파일) → **build 7 성공**(대화형+Apple로그인으로 프로파일 `H92BSJM7VZ` 재생성). 한도 소비
+3. ⏳ **`eas submit --latest`** — 진행 중(백그라운드). ASC App `6781978062` 업로드. submit은 빌드 한도 미소비
+4. **실기기/TestFlight 검증** (3종) ← **다음 세션 시작점**:
    - [ ] Sign in with Apple → Supabase Users에 `provider: apple` 생성 확인
    - [ ] 둘러보기(게스트) → 로그인 없이 꿈 기록→해석 동작 / 설정에서 "Google로 회원가입" 시 기록 보존 확인
    - [ ] 설정 → 계정 삭제 → 2단계 확인 → 삭제 후 Welcome 복귀 / Supabase Users·dreams row 삭제 확인
