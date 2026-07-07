@@ -42,7 +42,8 @@ We have verified the demo account credentials provided in the App Review Informa
 We sincerely appreciate the time and care your team has put into reviewing our app. Please let us know if any additional information would be helpful.
 
 Best regards,
-The DreamTeller Team
+Yeongmo Kang
+Developer, DreamTeller
 
 ---
 
