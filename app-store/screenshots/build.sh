@@ -40,9 +40,9 @@ fi
 # slot | tpl(side/flat) | side(phone-left/phone-right/-) | raw | 제목(<br>) | 설명(<br>)
 SHOTS=(
   "3|side|phone-left|02-record.png|AI가 먼저 물어보며<br>꿈을 완성해요|막막한 빈 화면 대신,<br>Luna의 질문에 답하다 보면<br>흐릿한 꿈이 또렷해져요."
-  "4|side|phone-right|03-interpret.png|상징·심리·무의식<br>세 관점의 해몽|하나의 꿈을 세 가지 시선으로<br>깊이 풀어내, 오늘의 나를<br>돌아보게 해줘요."
+  "4|side|phone-right|03-interpret.png|상징·심리·무의식<br>세 관점의 해석|하나의 꿈을 세 가지 시선으로<br>깊이 풀어내, 오늘의 나를<br>돌아보게 해줘요."
   "5|flat|-|04-archive.png|기록한 꿈이<br>차곡차곡 쌓여요|지난 꿈을 다시 꺼내 보고,<br>반복되는 패턴 속에서<br>새로운 나를 발견하세요."
-  "6|side|phone-left|05-insights.png|별빛으로 풀어내는<br>꿈 해몽의 순간|잠든 사이의 이야기가<br>별이 되어 떠오르는<br>감성적인 해몽 경험."
+  "6|side|phone-left|05-insights.png|별빛으로 돌아보는<br>꿈의 순간|잠든 사이의 이야기가<br>별이 되어 떠오르는<br>감성적인 자기 성찰."
 )
 for shot in "${SHOTS[@]}"; do
   IFS='|' read -r slot tpl side file title sub <<< "$shot"
