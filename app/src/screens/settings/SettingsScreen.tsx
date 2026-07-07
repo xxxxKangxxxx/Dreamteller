@@ -179,18 +179,22 @@ export function SettingsScreen() {
       <View style={styles.body}>
         <Text style={styles.sectionLabel}>프로필</Text>
         <Card variant="default" padding="lg" style={styles.profileCard}>
-          <View style={styles.profileRow}>
-            <Text style={styles.profileName}>{user?.name ?? '익명'}</Text>
-            {!isGuest && user?.plan ? (
-              <Badge
-                label={user.plan}
-                variant={user.plan === 'PREMIUM' ? 'premium' : 'count'}
-              />
-            ) : null}
-          </View>
-          <Text style={styles.profileEmail}>
-            {isGuest ? '게스트로 이용 중' : user?.email ?? '-'}
-          </Text>
+          {isGuest ? (
+            <Text style={styles.profileName}>게스트로 이용 중</Text>
+          ) : (
+            <>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileName}>{user?.name ?? '익명'}</Text>
+                {user?.plan ? (
+                  <Badge
+                    label={user.plan}
+                    variant={user.plan === 'PREMIUM' ? 'premium' : 'count'}
+                  />
+                ) : null}
+              </View>
+              <Text style={styles.profileEmail}>{user?.email ?? '-'}</Text>
+            </>
+          )}
         </Card>
 
         {isGuest ? (

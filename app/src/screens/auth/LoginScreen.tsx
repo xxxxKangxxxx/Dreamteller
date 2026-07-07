@@ -3,7 +3,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
@@ -162,7 +165,7 @@ export function LoginScreen() {
 
             {Platform.OS === 'ios' && appleAvailable ? (
               <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                 buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
                 cornerRadius={radius.md}
                 style={styles.appleButton}
@@ -172,16 +175,28 @@ export function LoginScreen() {
               />
             ) : null}
 
-            <Button
-              label="Google로 계속하기"
-              variant="secondary"
+            {/* Google 공식 브랜드 버튼(neutral/white). 색상은 Google 가이드라인 고정값. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: anySubmitting, busy: googleSubmitting }}
+              disabled={anySubmitting}
               onPress={() => {
                 void handleGoogleLogin();
               }}
-              disabled={anySubmitting}
-              loading={googleSubmitting}
-              fullWidth
-            />
+              style={({ pressed }) => [
+                styles.googleButton,
+                { opacity: anySubmitting ? 0.5 : pressed ? 0.85 : 1 },
+              ]}
+            >
+              {googleSubmitting ? (
+                <ActivityIndicator color="#1F1F1F" />
+              ) : (
+                <View style={styles.googleContent}>
+                  <GoogleLogo size={20} />
+                  <Text style={styles.googleLabel}>Google로 계속하기</Text>
+                </View>
+              )}
+            </Pressable>
 
             <Button
               label="회원가입"
@@ -255,6 +270,28 @@ const styles = StyleSheet.create({
   appleButton: {
     height: 48,
     width: '100%',
+  },
+  // Google 공식 neutral 버튼: 흰 배경 + 회색 테두리 + 진한 텍스트 (Google 브랜드 가이드 고정값)
+  googleButton: {
+    height: 48,
+    alignSelf: 'stretch',
+    borderRadius: radius.md,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#747775',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  googleLabel: {
+    // Apple 네이티브 버튼 텍스트 크기에 맞춤(48px 높이 기준). 필요 시 실기기에서 ±1~2 조정
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#1F1F1F',
   },
   divider: {
     flexDirection: 'row',
