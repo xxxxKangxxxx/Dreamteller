@@ -1,11 +1,48 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-07-01 (EAS 빌드 사이클 **재개** — Apple 로그인 프로파일 재생성 + **build 7 성공** + submit 진행. **다음은 submit 완료 후 TestFlight 검증부터**)
+> 최종 업데이트: 2026-07-07 (submit 완료 + **TestFlight 3종 검증 전부 통과** + **Google OAuth 브랜딩 완료**. 검증 중 발견한 로그인/설정 UI 수정 3건은 **build 8에 반영 예정**. **다음은 데모계정 정상화 + build 8 빌드부터**)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
 
 ---
 
-## 오늘 세션 요약 (2026-07-01, EAS 빌드 사이클 재개 — build 7 성공 + submit) ⭐⭐
+## 오늘 세션 요약 (2026-07-07, TestFlight 3종 검증 전부 통과 + Google OAuth 브랜딩) ⭐⭐⭐
+
+> **submit 완료 → build 7이 TestFlight에 정상 업로드.** 실기기 검증 3종(Apple 로그인 / 게스트+Google 전환 / 계정 삭제) **전부 통과**. 검증 중 로그인·설정 UI 개선점 3건 발견 → **build 8에 일괄 반영 예정**. 추가로 Google 로그인 동의화면의 `xxx.supabase.co` 노출 문제를 **GCP OAuth 브랜딩**으로 해결(무료, 앱 코드 무관).
+
+### Supabase 재개 후 Auth 설정 재확인 ⚠️
+- Free 플랜 프로젝트가 미사용으로 **paused → resume**(대시보드에서 Resume, 데이터 손실 없음). 재개 후 **Anonymous sign-ins 토글이 꺼져 있어** 게스트 진입 시 `Anonymous sign-ins are disabled` 에러 → 콘솔에서 **Anonymous sign-ins + Manual linking 다시 ON**하니 해결. **교훈: pause/resume 시 Auth 설정이 초기화될 수 있으니 재개 때 항상 재확인**
+- 백엔드(EC2) `/health` 200, `DELETE /api/account` 토큰없이 401 정상. Apple 로그인 성공으로 DB 연결도 정상 확인
+
+### TestFlight 실기기 검증 3종 — 전부 통과 ✅
+- **① Apple 로그인**: 검은 Apple 버튼 → 로그인 성공 / 꿈 기록·해몽 동작 / Supabase Users에 `provider: apple` 생성 확인
+- **② 게스트 + Google 전환**: 둘러보기 익명 진입(`is_anonymous:true` — **email이 비어 있어 대시보드에서 User ID로 검색해야 보임**) / 기록·해몽 동작 / 설정 "게스트로 이용 중"+Google 회원가입 노출·로그아웃 없음 / **게스트→Google 전환 시 기록 보존 + 같은 유저가 `provider:google`로 승격** 확인(linkIdentity, 5.1.1 강제가입금지 대응 핵심) ⭐
+- **③ 계정 삭제**: 2단계 확인 → Welcome 복귀 / Supabase 유저·dreams cascade 삭제 확인 / **화면 녹화 완료**(ASC Notes 첨부용). 방금 Google 전환한 테스트 계정으로 수행
+
+### build 8에 반영할 로그인/설정 UI 수정 3건 (로컬, `tsc` 통과, 아직 미빌드)
+1. **SettingsScreen 프로필**: 게스트일 때 큰 "게스트" 텍스트 제거 → "게스트로 이용 중" 한 줄만. 정식 유저는 기존대로(이름+플랜배지+이메일). `isGuest` 분기
+2. **Apple 버튼 텍스트**: `SIGN_IN`→`CONTINUE` → "Apple로 계속하기". 네이티브 버튼이라 텍스트 변경은 이 방법뿐, **폰트 크기는 Apple 고정(변경 불가)**
+3. **Google 버튼 = 공식 브랜드 버튼으로 교체**: `components/icons/GoogleLogo.tsx`(4색 G, react-native-svg) 신규 + 흰 배경/회색테두리(`#747775`)/진한텍스트(`#1F1F1F`) neutral 스타일. Apple 버튼과 높이(48)·코너 통일. **폰트 원래 15px(Button md)→18px로 키워 Apple(~18-19px)에 맞춤** — build 8에서 나란히 보고 ±1~2 미세조정 예정. Google 브랜드색은 디자인 토큰 아닌 가이드 고정값이라 예외적 하드코딩(주석 표기)
+
+### Google OAuth 동의화면 브랜딩 — supabase.co 노출 해결 (콘솔 작업, 앱 코드/빌드 무관) ⭐
+- **문제**: Google 로그인이 웹 OAuth(`authService.ts` `signInWithOAuth`+WebBrowser)라 동의화면에 `xxx.supabase.co` 노출. 앱 이름/로고는 Supabase 아닌 **GCP OAuth 설정**에서 옴
+- **네이티브 Google(id_token) 전환은 기각** ❌: 익명 유저 linkIdentity 미지원 → 게스트→Google 기록보존이 깨짐(Apple과 같은 제약). **웹 OAuth 유지 필수**
+- **해결(무료)**: GCP 프로젝트 **`dreamteller-494611`**(Supabase Client ID `884550681396-...` 소유 프로젝트, Gemini 프로젝트와 별개, OAuth 클라 "웹 클라이언트 1" 웹앱 1개)의 **Google 인증 플랫폼**에서:
+  - 도메인 `dreamteller.io.kr` **Search Console 도메인 속성 인증**(Route 53 **루트에 TXT 신규 생성** — 기존 TXT는 `_dmarc`/`mail` 하위도메인이라 무충돌. `dig`로 8.8.8.8/1.1.1.1/awsdns 전파 확인 후 Verify)
+  - **브랜딩**: 앱 이름 `DreamTeller` + 홈/개인정보(`/privacy.html`)/약관(`/terms.html`) URL + 승인된 도메인 `dreamteller.io.kr` + 지원·연락 이메일. **로고는 verification 트리거라 일단 제외**(이름만으로 목표 달성, 로고는 추후)
+  - **대상: 프로덕션으로 게시**(External). 스코프 민감/제한 **0개**라 심사 없이 즉시 게시. `openid/email/profile`은 기본 스코프라 미등록 정상
+- **결과**: 몇 분~수십 분 뒤 동의화면이 `supabase.co`→**"DreamTeller"** 로 교체(현 build 7에도 즉시 반영). 주소창 도메인 자체는 그대로 = Supabase **Custom Domain 애드온 $10/월** 영역, 출시엔 불필요
+
+### 다음 세션 시작점 ⭐
+1. **데모 계정 정상화**: `kangym071900@gmail.com`/`123456` 로그인 검증 → ASC "앱 심사 정보" 비번 정정
+2. **build 8 빌드**(위 UI 3건 반영) → 로그인 화면 Apple/Google 버튼 폰트 매칭 실기기 최종 확인(필요시 폰트 미세조정 후 재빌드 판단)
+3. 스크린샷 재촬영(새 로그인 화면, 6.5"+iPad)
+4. ASC 메타데이터 `METADATA.md` 최신본 교체
+5. 재제출 + App Review 통합 답장(영문) 게시
+- (확인) Google 브랜딩 실제 반영됐는지 앱에서 눈으로 / (미확정) UI 3건 외 추가 수정 없으면 build 8 확정
+
+---
+
+## 이전 세션 요약 (2026-07-01, EAS 빌드 사이클 재개 — build 7 성공 + submit) ⭐⭐
 
 > **7월 진입으로 EAS 월 빌드 한도 회복** → 지난 세션 보류했던 반려 대응 빌드 사이클 재개. Apple 로그인 추가로 프로비저닝 프로파일을 재생성해야 했고, **build 7 성공 + submit 진행**까지 완료. 실기기 TestFlight 검증부터는 다음 세션.
 
@@ -67,25 +104,27 @@
 
 ## 🎯 빌드 사이클 체크리스트 (진행 상황) ⭐
 
-> **순서대로.** 1~3은 2026-07-01 완료. 4번(TestFlight 검증)부터가 다음 세션 시작점.
+> **순서대로.** 1~4는 완료(1~3 07-01, 4 **07-07 TestFlight 3종 전부 통과**). **5번(데모계정)·build 8부터가 다음 시작점.**
 
 1. ✅ ~~로컬 앱·문서 변경 push~~ — 반려대응 코드는 지난 커밋(`3bb98c2`)에 이미 push됨
 2. ✅ **EAS production 빌드** — build 6 실패(Apple 프로파일) → **build 7 성공**(대화형+Apple로그인으로 프로파일 `H92BSJM7VZ` 재생성). 한도 소비
-3. ⏳ **`eas submit --latest`** — 진행 중(백그라운드). ASC App `6781978062` 업로드. submit은 빌드 한도 미소비
-4. **실기기/TestFlight 검증** (3종) ← **다음 세션 시작점**:
-   - [ ] Sign in with Apple → Supabase Users에 `provider: apple` 생성 확인
-   - [ ] 둘러보기(게스트) → 로그인 없이 꿈 기록→해석 동작 / 설정에서 "Google로 회원가입" 시 기록 보존 확인
-   - [ ] 설정 → 계정 삭제 → 2단계 확인 → 삭제 후 Welcome 복귀 / Supabase Users·dreams row 삭제 확인
-5. **데모 계정 정상화**: `kangym071900@gmail.com` / `123456` 직접 로그인 검증 → ASC "앱 심사 정보"에 비번 정정
-6. **스크린샷 갱신**: 로그인 화면에 Apple 버튼 추가됨 → 메타 스크린샷 재촬영(6.5"+iPad). `app-store/screenshots/build.sh`/`build-ipad.sh` 재사용
-7. **계정 삭제 화면 녹화**(실기기) → ASC "앱 심사 정보" Notes에 첨부 (Apple 명시 요구)
+3. ✅ **`eas submit --latest`** — 완료. ASC App `6781978062` 업로드 → **build 7 TestFlight 정상 표시**. submit은 빌드 한도 미소비
+4. ✅ **실기기/TestFlight 검증** (3종) — **07-07 전부 통과**:
+   - [x] Sign in with Apple → Supabase Users에 `provider: apple` 생성 확인
+   - [x] 둘러보기(게스트) → 로그인 없이 꿈 기록→해석 동작 / 설정에서 "Google로 회원가입" 시 기록 보존 확인(linkIdentity, `provider:google` 승격)
+   - [x] 설정 → 계정 삭제 → 2단계 확인 → 삭제 후 Welcome 복귀 / Supabase Users·dreams row 삭제 확인 / 화면 녹화 완료
+4b. ✅ **Google OAuth 브랜딩**(07-07) — 동의화면 `supabase.co`→`DreamTeller`. GCP `dreamteller-494611` 프로덕션 게시 + 도메인 인증 완료. 로고는 추후. **앱 코드/빌드 무관**
+5. **데모 계정 정상화** ← **다음 시작점**: `kangym071900@gmail.com` / `123456` 직접 로그인 검증 → ASC "앱 심사 정보"에 비번 정정
+6. **build 8 빌드**: 검증 중 발견한 로그인/설정 UI 수정 3건 반영(게스트 프로필 텍스트 / Apple "계속하기" / Google 브랜드 버튼) → 실기기에서 Apple·Google 버튼 폰트 매칭 최종 확인
+7. **스크린샷 갱신**: 로그인 화면에 Apple 버튼+Google 브랜드 버튼 반영됨 → 메타 스크린샷 재촬영(6.5"+iPad). `app-store/screenshots/build.sh`/`build-ipad.sh` 재사용
 8. **ASC 메타 반영**: 이름/부제/프로모션/설명/키워드를 `METADATA.md` 최신본으로 교체
-9. **재제출 + Reply**: 빌드 첨부 후, App Review에 **통합 답장(영문)** 게시 — 4.3 반박 핵심
+9. **재제출 + Reply**: 빌드(8) 첨부 + 계정삭제 녹화 첨부 후, App Review에 **통합 답장(영문)** 게시 — 4.3 반박 핵심
 10. (선택) Supabase **captcha**(Turnstile/hCaptcha) — 익명 로그인 어뷰징/Gemini 비용 방어. 출시 후 모니터링하며 도입
 
 ### 보류/백로그 (기존)
 - 알림 콜드스타트→RecordChat 직행 / #8 OTP 재발송 버튼 검증 / 웹 컴포넌트화
 - Gemini 선불 잔액 0 = 전면 장애 → 예산 알림 설정
+- Google OAuth **로고** 추후 업로드(verification 트리거) / Supabase **Custom Domain**($10/월, 주소창까지 자체도메인 원하면)
 
 ---
 
