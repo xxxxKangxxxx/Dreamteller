@@ -8,7 +8,7 @@
 ## 1. 기본 정보 (앱 레코드 생성 시)
 | 항목 | 값 |
 |---|---|
-| 앱 이름 (App Name, 30자 이내) | **DreamTeller - 꿈 일기장** (※ 'DreamTeller' 단독은 App Store에 선점됨 → 설명어 결합. 홈 화면 아이콘 이름은 app.json의 `DreamTeller` 그대로. **4.3 대응: 이름에서 '해몽' 제거 → 일기장 포지셔닝**) |
+| 앱 이름 (App Name, 30자 이내) | **DreamTeller - 매일 기록하는 꿈 일기** (2026-07-08 실제 반영값. ※ 'DreamTeller' 단독은 App Store에 선점됨 → 설명어 결합. 홈 화면 아이콘 이름은 app.json의 `DreamTeller` 그대로. **4.3 대응: 이름에서 '해몽' 제거 → 일기장 포지셔닝**) |
 | 부제 (Subtitle, 30자 이내) | **AI와 함께 쓰고 간직하는 꿈** |
 | 기본 언어 | 한국어 |
 | 번들 ID | `com.dreamteller.app` |
@@ -25,7 +25,7 @@
 | 지원 URL (Support URL) | `https://dreamteller.io.kr` |
 | 마케팅 URL (선택) | `https://dreamteller.io.kr` |
 | 개인정보처리방침 URL (필수) | `https://dreamteller.io.kr/privacy.html` |
-| 저작권 (Copyright) | `2026 강영모` (연도+권리자명. 사업자 등록 시 상호로 갱신) |
+| 저작권 (Copyright) | `© 2026 Yeongmo Kang` (2026-07-08 실제 반영값. 사업자 등록 시 상호로 갱신) |
 
 ## 4. 프로모션 텍스트 (Promotional Text, 170자 이내 — 심사 없이 수시 변경 가능)
 > 간밤의 꿈, 흘려보내지 마세요. AI와 대화하며 손쉽게 적고, 나만의 아카이브에 차곡차곡 간직하세요. 언제든 다시 꺼내보고, 반복되는 인물·장소와 감정의 흐름 속에서 새로운 나를 발견하는 꿈 일기장입니다.
@@ -104,8 +104,9 @@ Apple 심사자는 로그인 후 기능을 확인합니다. **반드시 동작�
 ---
 
 ## 스크린샷 (필수 — 시뮬레이터에서 캡처)
-- 이 앱 레코드는 **6.5" 디스플레이** 슬롯 요구 (허용: **1242×2688 또는 1284×2778**), 1~10장
-- 제작: `app-store/screenshots/` — raw 캡처를 `build.sh`로 브랜드 합성(1284×2778 출력). 상세는 그 폴더의 `CAPTURE_GUIDE.md`
+- ⚠️ **iPhone 6.5"(1284×2778) + iPad 12.9"(2048×2732) 슬롯 둘 다 필수** — 앱이 iPad 지원이라 **iPad 슬롯을 비우면 심사 제출이 막힘**(2026-07-08 확인)
+- 제작: `app-store/screenshots/` — raw 캡처를 `build.sh`(iPhone, `out/` 6컷) / `build-ipad.sh`(iPad, `out-ipad/` 5컷)로 브랜드 합성. 상세는 그 폴더의 `CAPTURE_GUIDE.md`
+- 캡션은 4.3 대응으로 '해몽'→'해석/자기 성찰' 순화됨. 로그인 화면은 스크린샷에 없으므로 로그인 UI 변경 시 재캡처 불필요
 - 권장 컷: ① 온보딩/랜딩 ② RecordChat 대화 ③ 해석 카드(InterpretScreen) ④ 아카이브(미구현 시 Home) ⑤ 인사이트
 - TestFlight 내부 테스트만 할 거면 스크린샷 없이도 빌드 업로드 가능. **App Store 공개 심사 제출 시 필수.**
 
