@@ -8,6 +8,7 @@ from app.services.gemini_service import generate_title
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
+from app.utils.usage import ensure_dream_quota
 
 router = APIRouter()
 
@@ -30,6 +31,7 @@ def _to_summary(row: dict[str, Any], has_interpretation: bool = False) -> dict[s
 @router.post("")
 def create_dream(payload: CreateDreamPayload, user_id: UserId) -> dict[str, Any]:
     sb = get_supabase()
+    ensure_dream_quota(sb, user_id)
     title = generate_title(payload.raw_content)
     row = {
         "user_id": user_id,

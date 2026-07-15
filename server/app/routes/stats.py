@@ -6,6 +6,13 @@ from fastapi import APIRouter, Depends, Query
 from app.deps.auth import get_current_user_id
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
+from app.utils.usage import (
+    count_dreams_this_month,
+    count_interpretations_this_month,
+    get_limits,
+    get_plan,
+    month_range,
+)
 
 router = APIRouter()
 UserId = Annotated[str, Depends(get_current_user_id)]
@@ -19,10 +26,7 @@ def monthly(
 ) -> dict[str, Any]:
     sb = get_supabase()
 
-    start = date(year, month, 1)
-    end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
-    start_iso = start.isoformat()
-    end_iso = end.isoformat()
+    start_iso, end_iso = month_range(year, month)
 
     res = (
         sb.table("dreams")
@@ -75,37 +79,12 @@ def monthly(
 def usage(user_id: UserId) -> dict[str, Any]:
     sb = get_supabase()
 
-    profile_res = sb.table("profiles").select("plan").eq("id", user_id).limit(1).execute()
-    plan = (profile_res.data[0]["plan"] if profile_res.data else "FREE") or "FREE"
-
-    today = datetime.now(timezone.utc).date()
-    start = date(today.year, today.month, 1)
-    end = date(today.year + 1, 1, 1) if today.month == 12 else date(today.year, today.month + 1, 1)
-    start_iso = start.isoformat()
-    end_iso = end.isoformat()
-
-    dreams_res = (
-        sb.table("dreams")
-        .select("id", count="exact")
-        .eq("user_id", user_id)
-        .gte("recorded_at", start_iso)
-        .lt("recorded_at", end_iso)
-        .execute()
-    )
-    dreams_used = dreams_res.count or 0
-
-    interp_res = (
-        sb.table("interpretations")
-        .select("dream_id, dreams!inner(user_id)", count="exact")
-        .eq("dreams.user_id", user_id)
-        .gte("created_at", start_iso)
-        .lt("created_at", end_iso)
-        .execute()
-    )
-    interp_used = interp_res.count or 0
-
-    limits = {"FREE": (30, 5), "PREMIUM": (9999, 9999)}
-    dream_limit, interp_limit = limits.get(plan, limits["FREE"])
+    # 강제 로직(utils/usage)과 같은 함수를 써서 표시와 강제가 항상 일치한다.
+    # 꿈 카운트는 recorded_at이 아닌 created_at 기준(백데이트 우회 방지).
+    plan = get_plan(sb, user_id)
+    dreams_used = count_dreams_this_month(sb, user_id)
+    interp_used = count_interpretations_this_month(sb, user_id)
+    dream_limit, interp_limit = get_limits(plan)
 
     return success(
         {

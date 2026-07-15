@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routes import account, dreams, interpret, stats
 from app.utils.envelope import error
+from app.utils.usage import QuotaExceededError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +40,11 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
         status_code=422,
         content=error("VALIDATION_ERROR", str(exc.errors())),
     )
+
+
+@app.exception_handler(QuotaExceededError)
+async def quota_exceeded_handler(_request: Request, exc: QuotaExceededError) -> JSONResponse:
+    return JSONResponse(status_code=429, content=error(exc.code, exc.message))
 
 
 @app.exception_handler(Exception)

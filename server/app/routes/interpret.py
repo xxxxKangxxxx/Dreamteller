@@ -2,7 +2,7 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.deps.auth import get_current_user_id
 from app.schemas.dream import ChatMessage
@@ -10,6 +10,7 @@ from app.services.gemini_service import generate_interpretation, stream_chat
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
+from app.utils.usage import ensure_chat_quota, ensure_interpretation_quota
 
 logger = logging.getLogger("interpret")
 router = APIRouter()
@@ -19,9 +20,9 @@ _jobs: dict[str, str] = {}
 
 
 class ChatPayload(BaseModel):
-    sessionId: str
-    messages: list[ChatMessage]
-    step: int
+    sessionId: str = Field(max_length=64)
+    messages: list[ChatMessage] = Field(min_length=1, max_length=30)
+    step: int = Field(ge=0, le=5)
 
 
 class GeneratePayload(BaseModel):
@@ -32,7 +33,8 @@ RECORD_COMPLETE_TOKEN = "[RECORD_COMPLETE]"
 
 
 @router.post("/chat")
-def chat(payload: ChatPayload, _user_id: UserId) -> dict[str, Any]:
+def chat(payload: ChatPayload, user_id: UserId) -> dict[str, Any]:
+    ensure_chat_quota(user_id)
     next_step = min(payload.step + 1, 5)
     logger.info(
         "interpret/chat enter session=%s step=%s msgs=%s last_role=%s last_len=%s",
@@ -123,6 +125,9 @@ def generate(
 
     if _jobs.get(payload.dreamId) == "processing":
         return success({"jobId": payload.dreamId, "status": "processing"})
+
+    # 한도 체크는 새 잡을 시작할 때만 — 이미 생성된 해석 조회는 막지 않는다
+    ensure_interpretation_quota(sb, user_id)
 
     raw_content = dream_res.data[0]["raw_content"]
     _jobs[payload.dreamId] = "processing"
