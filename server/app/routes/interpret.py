@@ -86,10 +86,11 @@ def _run_interpretation(dream_id: str, raw_content: str) -> None:
         except Exception as exc:
             if "duplicate key" not in str(exc):
                 raise
-        _jobs[dream_id] = "completed"
     except Exception:
         logger.exception("interpretation generation failed for dream_id=%s", dream_id)
-        _jobs[dream_id] = "failed"
+    finally:
+        # 종료 상태는 /status의 DB 폴백이 진실 소스 — 엔트리를 남기면 무한 누적
+        _jobs.pop(dream_id, None)
 
 
 @router.post("/generate")
