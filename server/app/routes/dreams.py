@@ -65,7 +65,7 @@ def list_dreams(
     sb = get_supabase()
     q = (
         sb.table("dreams")
-        .select("*", count="exact")
+        .select("id, title, raw_content, emotion, illustration_url, recorded_at", count="exact")
         .eq("user_id", user_id)
         .order("recorded_at", desc=True)
     )
