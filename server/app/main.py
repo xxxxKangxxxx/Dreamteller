@@ -14,6 +14,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+logger = logging.getLogger("app")
+
 app = FastAPI(title="DreamTeller API", version="0.1.0")
 
 app.add_middleware(
@@ -40,10 +42,13 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
 
 
 @app.exception_handler(Exception)
-async def generic_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error(
+        "Unhandled exception on %s %s", request.method, request.url.path, exc_info=exc
+    )
     return JSONResponse(
         status_code=500,
-        content=error("INTERNAL_ERROR", str(exc)),
+        content=error("INTERNAL_ERROR", "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
     )
 
 
