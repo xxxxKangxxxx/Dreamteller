@@ -1,11 +1,54 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-07-08 (**build 8 빌드·제출 + App Store 재제출 완료** 🎉 — TestFlight 3종 검증 통과 + Google OAuth 브랜딩 + 로그인/설정 UI 개선 + 스크린샷/메타데이터 4.3 순화 + 영문 답장 게시. **다음은 Apple 심사 결과 대기(수동 릴리스)**)
+> 최종 업데이트: 2026-07-15 (**App Review 상태 문의 제출 + 서버 코드 리뷰 4건 배포** — build 8 심사 7일째 정체 → 상태 문의(케이스 102942413272) 제출. 심사 대기 중 앱 빌드와 무관한 **서버 항목 S1·A3·E1·S2+S3 수정→검증→EC2 배포 완료**. **다음은 여전히 Apple 심사 결과 대기(수동 릴리스)**)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
 
 ---
 
-## 오늘 세션 요약 (2026-07-07~08, build 8 재제출 완료 — 반려 대응 사이클 마무리) ⭐⭐⭐
+## 오늘 세션 요약 (2026-07-15, App Review 상태 문의 + 서버 코드 리뷰 4건 배포) ⭐⭐⭐
+
+> **① App Store 심사 상태 문의 제출** — build 8 재제출(07-08) 후 "심사 대기 중"이 7일째 정체(1차 땐 24h 내 In Review 전환). Apple 문의하기 → 앱 심사 → 앱 심사 상태 폼으로 상태 확인 요청 제출. **케이스 ID `102942413272`**, 이메일 답변 대기. **② 심사 대기 시간을 활용해 서버 코드 리뷰(`CODE_REVIEW.md`) 4건을 수정·검증·배포** — 전부 앱 빌드와 독립적인 서버 항목이라 심사에 영향 없이 즉시 배포 가능. 커밋 4개 push 후 EC2 `git pull`+재시작으로 프로덕션 반영, 스모크 통과.
+
+### App Review 상태 문의 (콘솔 작업) 📮
+- **경위**: build 8이 07-08 재제출 후 "Waiting for Review"에서 7일 정체. 취소·재제출은 **하지 않기로 결정**(큐 순번 리셋 방지 + Resolution Center 맥락 유지)
+- **폼 경로 변화 확인**: 예전 `contact/app-store?topic=appstatus`(App Status) 항목이 없어짐. `Contact the App Review Team` 폼은 appeal/expedite 등 7개 항목뿐이라 단순 상태 문의엔 부적합 → **`developer.apple.com/contact/topic/select` → 앱 심사 → 앱 심사 상태**가 올바른 경로(케이스 생성 + 이메일 답변). expedite는 여전히 App Review Team 폼 사용
+- **제출 내용**: 영문. "재제출 후 7일 정체, 1차 땐 24h 내 In Review 전환됐음, expedite 요청이 아니라 큐 정상 등록 여부 확인" 톤. 상세 초안·본문은 `docs/appstore/STATUS_INQUIRY.md`
+- **다음 단계**: 답변과 무관하게 **2026-07-22(재제출 후 14일)까지도 정체면 Expedited Review 요청 검토**
+
+### 서버 코드 리뷰 4건 — 수정·검증·배포 완료 🔧
+> 처리 순서는 `CODE_REVIEW.md` 권장 순서. 각 항목 로컬 TestClient 검증(스크래치패드) 통과 후 항목별 커밋.
+
+- **S1 (`296351c`)** — 500 응답 내부 예외 메시지 노출 차단 + traceback 로깅. generic exception handler가 `str(exc)`를 그대로 반환하던 것을 고정 메시지(`INTERNAL_ERROR`)로 교체하고, `logger.error(exc_info)`로 메서드·경로+traceback을 서버 로그에 기록(기존엔 500 원인이 로그에 안 남았음)
+- **A3 (`dc958f1`)** — 해몽 잡 스토어(`_jobs`) 종료 엔트리 누적 제거. completed/failed를 dict에 남기던 것을 `finally`의 `pop`으로 교체. 종료 상태는 `/status`의 DB 폴백이 이미 진실 소스라 동작 변화 없음, 해몽 1건당 1엔트리 무한 누수만 해소(재시작 소실·멀티워커 한계는 잔존, 수용)
+- **E1 (`b8df187`)** — 목록 조회 `select("*")` → 필요한 6개 컬럼만. `GET /dreams`가 대화 전문(`chat_history` JSONB)까지 매번 읽고 버리던 것을 제거. 단건 조회(`get_dream`)는 chat_history 실제 반환하므로 그대로 유지
+- **S2+S3 (`485885b`)** — Gemini 비용 방어의 핵심. `app/utils/usage.py` 신설로 플랜 조회·월간 카운트·한도 강제를 한곳에 모아 `/stats/usage` 표시와 라우트 강제가 같은 로직 공유:
+  - 꿈 생성 FREE 월 30건 / 해몽 FREE 월 5건 초과 시 **429**(한도 초과 시 Gemini 호출 자체 안 함). 해몽은 기존 해석 조회는 안 막음
+  - `/interpret/chat`은 카운트조차 없던 라우트 → **유저별 일일 100회** 인메모리 카운터(초과 429, 날짜 바뀌면 리셋). 게스트 토큰 무한 호출로 잔액 소진하는 공격 차단
+  - 카운트 기준을 `recorded_at`→**`created_at`**으로 변경(클라이언트가 recorded_at 백데이트로 한도 우회하는 것 차단, 표시=강제 일치)
+  - Pydantic 입력 제한: content 4000자 / messages 1~30개 / raw_content 5000자 / title 200자 / step 0~5 → 초과 422. 요청당 토큰 비용 상한 확보
+  - 부수 효과: 월 경계 계산 중복(**C3**)도 `month_range()`로 해소
+- **수치 결정 근거**: 정상 사용자 최대 사용량의 5배 이상 여유로 오탐 방지 + 계정당 최악 일일 비용 상한 확보 관점. chat은 처음 200회 제안 → 사용자 요청으로 **100회** 확정(정상 하루 10~20회의 5배)
+
+### 배포 (07-15) — EC2 프로덕션 반영 ✅
+- **커밋 4개 push**(`296351c`→`dc958f1`→`b8df187`→`485885b`) 후 집 IP 환경에서 SSH 접속 → `git pull --ff-only` + `sudo systemctl restart dreamteller` → `active`
+- **스모크 통과**: `/health` 200, 토큰 없는 `DELETE /api/account`·`POST /interpret/chat`·`GET /dreams` 전부 401. 기동 로그 깨끗(import 에러 없음, "Application startup complete")
+- **미완 확인 1건**: 한도 강제 로직이 실 Supabase 카운트를 타는 건 실사용이 처음 → 다음 TestFlight(build 8) 실행 시 **기록→해몽 스모크** 권장(문제 시 S1 덕분에 로그에 traceback 남음)
+
+### 오늘 발생한 오류 및 해결 내역 🐛
+1. **EC2 배포가 SG 22번에 막힘(SSH timeout)** — 외부 네트워크(카페 등) IP가 보안그룹 인바운드 22번 허용 IP와 불일치. 서버 자체는 정상(`/health` 200, SSH만 차단). **집 유동 IP가 바뀔 때마다 반복되는 문제**. → 사용자 결정으로 SG 수정 없이 **집 IP 환경에서 배포 재시도**해 해결. **근본 해결책은 SSM Session Manager 전환(IMPROVEMENTS 1-5)** — 출발지 IP 무관 접속 + SG 22 규칙 삭제. 제안됨, 미착수
+2. **로컬 검증 스크립트 `ModuleNotFoundError: No module named 'app'`** — server 디렉터리에서 실행 시 `app` 패키지를 못 찾음. → `PYTHONPATH=. ./venv/bin/python ...`로 해결(기록: tsc처럼 실행 위치 주의)
+3. **A3 검증 스크립트가 S2 도입 후 깨짐(`KeyError: 'data'`)** — `/generate`가 이제 사용량 한도 체크(`ensure_interpretation_quota`)를 타는데, mock supabase에 `profiles` 테이블과 `count` 속성이 없어 429/에러. → mock에 `profiles`(plan FREE) + `count` 추가해 해결. **여러 서버 항목을 한 세션에 처리할 때 앞 항목 검증도 재실행해 회귀 확인 필요**(실제로 S1·A3·E1 재실행함)
+
+### 다음 세션 시작점 ⭐
+1. **Apple 심사 결과 / 문의 답변 대기** — 케이스 `102942413272` 이메일 답변 확인. **7/22까지도 "심사 대기 중"이면 Expedited Review 요청**. 승인 시 **수동 출시**(직접 "출시" 클릭) / 반려 시 사유별 재대응
+2. **한도 로직 실사용 스모크** — 다음 TestFlight(build 8) 실행 시 기록→해몽 1건 정상 동작 확인(실 DB 카운트 첫 경유)
+3. (승인 후) 웹 랜딩 App Store 버튼 활성화(`web/index.html` disabled 2곳)
+4. (다음 빌드 사이클, 앱 빌드 필요) **A1+A2** 토큰 관리 단일화 + 죽은 `/auth/*` 코드 제거 — 인증 회귀 테스트 필수. 심사 확정 후 착수
+5. (백로그) 서버: E2 title 백그라운드화 / S4·C2 소유권 deps / nginx limit_req. 운영: Gemini 예산 알림 / captcha / SSM 전환(1-5)
+
+---
+
+## 이전 세션 요약 (2026-07-07~08, build 8 재제출 완료 — 반려 대응 사이클 마무리) ⭐⭐⭐
 
 > **App Store 재제출 완료.** build 7 TestFlight 검증 3종 통과 → 검증 중 발견한 로그인/설정 UI 3건 반영 → **build 8 빌드·submit** → 로그인 화면 폰트 매칭 실기기 확인(OK, build 9 불필요) → 스크린샷/메타데이터 4.3 순화 → **재제출 + 영문 답장 게시**. 별도로 Google 로그인 동의화면 `xxx.supabase.co` 노출을 **GCP OAuth 브랜딩**으로 해결(무료). **다음 이벤트 = Apple 심사 결과(수동 릴리스라 승인돼도 직접 출시).**
 
