@@ -1,7 +1,28 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-07-15 (**App Review 상태 문의 제출 + 서버 코드 리뷰 4건 배포** — build 8 심사 7일째 정체 → 상태 문의(케이스 102942413272) 제출. 심사 대기 중 앱 빌드와 무관한 **서버 항목 S1·A3·E1·S2+S3 수정→검증→EC2 배포 완료**. **다음은 여전히 Apple 심사 결과 대기(수동 릴리스)**)
+> 최종 업데이트: 2026-07-24 (**App Review 상태 문의 답장 도착 + expedite 요청서 STANDBY** — 케이스 102942413272에 Developer Support 답장: 심사팀에 정체 건 내부 에스컬레이션 완료·"추가 조치 불필요". build 8은 여전히 Waiting for Review(제출 후 16일째). expedite 요청서 작성해뒀으나 **에스컬레이션에 48~72h 반응 시간 부여 → 7/26~27까지도 정체면 발사**로 보류. **다음은 여전히 Apple 심사 결과 대기(수동 릴리스)**)
 > 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
+
+---
+
+## 오늘 세션 요약 (2026-07-24, App Review 상태 문의 답장 + expedite 요청서 준비) 📮
+
+> 코드 변경 없음 — App Review 대응/문서 작업 세션.
+
+### 진행 내역
+- **케이스 102942413272 답장 도착 (2026-07-24, 담당 Faye/Developer Support)** — 앱이 07-08부터 Waiting for Review임을 확인, **심사팀에 '정체 총 기간' 건을 내부 에스컬레이션(notified the review team)** 했다는 회신. "추가 조치 불필요(no further action)", 추가 정보 필요 시 직접 연락, 완료 시 이메일 통보. 케이스는 열린 상태 유지.
+  - **해석**: expedite 승인이 아니라 **내부 알림 수준** → 큐를 당겨준다는 보장은 없음. Developer Support는 심사 진행을 직접 통제하지 못하고 push하는 역할.
+- **취소·재제출 재검토 → 하지 않기로 재확인** — 웹 조사(2026-07-24)로 대기 큐 취소·재제출은 순번 리셋되어 오히려 지연 악화가 정설임을 재확인. 빌드 결함 있을 때만 취소.
+- **Expedited Review 요청서 작성 → STANDBY** — `docs/appstore/EXPEDITE_REQUEST.md`에 폼 입력 정보 + 영문 사유 본문 준비. **발사는 보류**: 방금 사람이 심사팀에 flag 한 직후라 지금 발사는 정당성 약함 + expedite는 남용 시 향후 거절 리스크로 아껴 쓸 카드.
+- 관련 문서 갱신: `docs/appstore/STATUS_INQUIRY.md`(답장 결과 기록), `docs/appstore/EXPEDITE_REQUEST.md`(신설, STANDBY 명시).
+
+### 다음 단계 (우선순위)
+1. **App Store Connect에서 "In Review" 전환 모니터링** — 우리 쪽 추가 조치 불필요.
+2. **2026-07-26~27까지도 Waiting for Review면 → Expedited Review 발사** (`EXPEDITE_REQUEST.md` 본문 그대로 사용). 승인/통과 시 **수동 릴리스**라 직접 "출시" 클릭 필요.
+3. 심사 통과 후: build 8 실사용 첫 실행 시 **기록→해몽 스모크**(한도 강제 로직 실 Supabase 카운트 첫 검증).
+
+### 오늘 발생한 오류 및 해결 내역 🐛
+- 없음 (콘솔/문서 작업 세션, 코드·배포 변경 없음).
 
 ---
 

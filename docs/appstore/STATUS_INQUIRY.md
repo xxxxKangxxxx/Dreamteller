@@ -43,4 +43,9 @@ Yeongmo Kang
 ## 제출 후
 
 - [x] 제출 완료: **2026-07-15**, 케이스 ID **102942413272** (플랫폼 iOS, 본문은 위 영문에서 제목·앱 정보 줄 제외한 버전)
-- 응답 없거나 14일(=2026-07-22) 이상 정체 시 → **Expedited Review 요청 검토** (Contact the App Review Team 폼에서 "request an expedited app review")
+- [x] **응답 도착: 2026-07-24** (담당: Faye, Developer Support). 요지:
+  - 앱이 2026-07-08부터 Waiting for Review 상태임을 확인, **심사팀에 '정체 기간' 건을 직접 알림(내부 에스컬레이션)**
+  - "추가 조치 불필요(no further action)", 추가 정보 필요 시 직접 연락, 심사 완료 시 이메일 통보
+  - 케이스 102942413272 **열린 상태 유지**
+- 해석: expedite 승인이 아니라 **내부 알림 수준** → 큐 당겨준다는 보장 없음. 다만 사람이 심사팀에 flag 함.
+- 다음: **2026-07-26~27까지도 정체면 Expedited Review 발사** (에스컬레이션에 48~72h 반응 시간 부여). 상세는 [`EXPEDITE_REQUEST.md`](./EXPEDITE_REQUEST.md)
