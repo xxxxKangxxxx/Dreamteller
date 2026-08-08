@@ -52,13 +52,12 @@ export function InterpretScreen() {
   const usage = usageQuery.data;
 
   const interpretLimit = usage?.currentMonth.interpretations;
-  const isFreeOver =
-    usage?.plan === 'FREE' &&
-    interpretLimit !== undefined &&
-    interpretLimit.used >= interpretLimit.limit;
+  // 한도값 자체가 플랜을 반영하므로 사용량 비교만으로 충분하다.
+  const isQuotaOver =
+    interpretLimit !== undefined && interpretLimit.used >= interpretLimit.limit;
 
   const dreamDetail = useDreamDetail(dreamId);
-  const interpret = useInterpret(isFreeOver ? undefined : dreamId);
+  const interpret = useInterpret(isQuotaOver ? undefined : dreamId);
   const cardTokens = DREAM_CARD_STYLE;
 
   const dream = dreamDetail.data;
@@ -205,30 +204,25 @@ export function InterpretScreen() {
       </ScrollView>
 
       <Modal
-        visible={isFreeOver === true}
+        visible={isQuotaOver === true}
         transparent
         animationType="fade"
         onRequestClose={() => navigation.goBack()}
       >
         <View style={styles.modalBackdrop}>
           <Card variant="dream" padding="xl" style={styles.modalCard}>
-            <Text style={styles.modalEmoji}>👑</Text>
+            <Text style={styles.modalEmoji}>🌙</Text>
             <Text style={styles.modalTitle}>이번 달 해몽을 모두 사용했어요</Text>
             <Text style={styles.modalBody}>
-              FREE 플랜은 월 {interpretLimit?.limit ?? 5}회까지 해몽을 받을 수 있어요.{'\n'}
-              프리미엄으로 업그레이드하면 무제한 해몽과 더 많은 기능을 사용할 수 있어요.
+              해몽은 한 달에 {interpretLimit?.limit ?? 5}번까지 받을 수 있어요.{'\n'}
+              다음 달 1일에 다시 초기화되니 그때 또 만나요.{'\n'}
+              그동안에도 꿈 기록과 아카이브는 그대로 사용할 수 있어요.
             </Text>
             <View style={styles.modalActions}>
               <Button
-                label="나중에"
-                variant="ghost"
-                onPress={() => navigation.goBack()}
-                fullWidth
-              />
-              <Button
-                label="프리미엄 알아보기"
+                label="확인"
                 variant="primary"
-                onPress={() => navigation.navigate('Settings')}
+                onPress={() => navigation.goBack()}
                 fullWidth
               />
             </View>

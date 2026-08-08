@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { colors } from '@/constants/colors';
@@ -185,12 +184,6 @@ export function SettingsScreen() {
             <>
               <View style={styles.profileRow}>
                 <Text style={styles.profileName}>{user?.name ?? '익명'}</Text>
-                {user?.plan ? (
-                  <Badge
-                    label={user.plan}
-                    variant={user.plan === 'PREMIUM' ? 'premium' : 'count'}
-                  />
-                ) : null}
               </View>
               <Text style={styles.profileEmail}>{user?.email ?? '-'}</Text>
             </>

@@ -126,8 +126,13 @@ Developer, DreamTeller
 
 **결백이 확인된 곳**: App Store 설명·프로모션 텍스트·키워드에 결제 언급 0건 / App Privacy에 "구입(Purchases)" 데이터 유형 **미선언** / `package.json`에 결제 SDK 0개 / 서버에 결제 라우트 0개.
 
-**다음 업데이트(build 9) 시 정리 대상**
-1. `InterpretScreen.tsx:218-229` — 한도 초과 모달에서 "프리미엄 업그레이드" 문구·버튼 제거 → "다음 달에 초기화됩니다" 안내로 대체
-2. `SettingsScreen.tsx:188-192` — 플랜 뱃지 제거
-3. `DreamCardScreen.tsx:232` — 카드 워터마크의 `FREE` 서브라벨 제거
-4. `web/privacy.html:35` — "요금제 상태" 표현 정리 검토
+**build 9 정리 대상 — 2026-08-08 코드 반영 완료** (빌드는 아직 굽지 않음. 심사관이 새 빌드를 요구할 때만 EAS 실행)
+
+1. ✅ `InterpretScreen.tsx` — 한도 초과 모달에서 "프리미엄 업그레이드" 문구와 "프리미엄 알아보기" 버튼 제거 → "다음 달 1일에 다시 초기화" 안내 + 단일 "확인" 버튼으로 대체. 왕관 이모지(👑 → 🌙)도 교체. 아울러 `isFreeOver`(플랜 참조) → `isQuotaOver`로 정리 — 한도값 자체가 플랜을 반영하므로 `plan === 'FREE'` 비교는 불필요했음
+2. ✅ `SettingsScreen.tsx` — 프로필의 플랜 뱃지 제거 + 미사용 `Badge` import 정리
+3. ✅ `DreamCardScreen.tsx` — 공유 카드 워터마크의 `FREE` 서브라벨 제거 + 미사용 `useUsage`/`isPremium`/`brandSub` 스타일 정리
+4. ✅ `web/privacy.html` — "요금제 상태" → "서비스 이용 등급(현재 전 계정 무료로 고정되며 결제 정보와 무관)". DB의 `profiles.plan` 컬럼은 실재하므로 **삭제가 아닌 표현 명확화**로 처리 (방침의 정확성 유지)
+
+검증: `npx tsc --noEmit` exit 0. 앱 UI에서 "프리미엄/업그레이드/PREMIUM" 문자열 **0건** 잔존.
+
+> 남겨둔 것: `Badge.tsx`의 `premium` variant(현재 미사용 dead variant, UI 노출 없음), `types/user.ts`의 `Plan` 타입, `supabase.ts`의 `plan: 'FREE'` 기본값, 서버 `PLAN_LIMITS`. 모두 화면에 드러나지 않으며, 한도 계산 로직이 여기에 의존하므로 유지.

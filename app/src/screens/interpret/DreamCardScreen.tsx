@@ -26,7 +26,6 @@ import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import { useDreamDetail } from '@/hooks/queries/useDreamDetail';
 import { useInterpret } from '@/hooks/queries/useInterpret';
-import { useUsage } from '@/hooks/queries/useUsage';
 import type { RootStackParamList } from '@/navigation/types';
 import { useUIStore } from '@/store/uiStore';
 import { formatDateDot } from '@/utils/date';
@@ -44,10 +43,8 @@ export function DreamCardScreen() {
 
   const dreamQuery = useDreamDetail(dreamId);
   const interpretQuery = useInterpret(dreamId);
-  const usageQuery = useUsage();
 
   const tokens = DREAM_CARD_STYLE;
-  const isPremium = usageQuery.data?.plan === 'PREMIUM';
 
   const cardRef = useRef<ViewShot>(null);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
@@ -229,9 +226,6 @@ export function DreamCardScreen() {
 
                   <View style={styles.brandRow}>
                     <Text style={[styles.brand, { color: tokens.watermark }]}>DREAMTELLER</Text>
-                    {!isPremium ? (
-                      <Text style={[styles.brandSub, { color: tokens.watermark }]}>FREE</Text>
-                    ) : null}
                   </View>
                 </View>
               </LinearGradient>
@@ -437,11 +431,6 @@ const styles = StyleSheet.create({
     ...textStyles.label,
     fontSize: 10,
     letterSpacing: 2.2,
-  },
-  brandSub: {
-    ...textStyles.label,
-    fontSize: 9,
-    letterSpacing: 1.6,
   },
   actions: {
     gap: spacing.sm,
