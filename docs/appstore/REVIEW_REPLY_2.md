@@ -49,6 +49,12 @@ To remove any ambiguity, we have already updated our public Terms of Service (ht
 
 We will also remove the placeholder "Premium" wording and the plan badge from the app in our next update, so that no future reviewer encounters the same ambiguity.
 
+**How you would like us to proceed**
+
+We believe the current build (1.0, build 8) is fully compliant as submitted, since no paid content or external purchase mechanism exists in it. Should you nonetheless determine that a new build is required to resolve this issue — for example, one with the placeholder "Premium" wording removed entirely — please let us know and we will prepare and upload it promptly.
+
+We also note that this submission currently shows a status of "Unresolved Issues" in App Store Connect. If any action is required on our side for the review to continue — such as resubmitting the existing build — we would be grateful if you could let us know, and we will act on it immediately.
+
 We hope this fully addresses your questions, and we are happy to provide any further detail — including a walkthrough of the relevant source code or backend configuration — if that would be helpful.
 
 Best regards,
@@ -79,18 +85,28 @@ Developer, DreamTeller
 - 향후 유료 도입 시 **Apple IAP로만** 구현, 3.1.1 완전 준수, 외부 결제 유도 절대 없음
 - **이미 조치 완료**: 약관 제11조 개정 (전면 무료 + 결제 수단 부재 명시, 향후 유료 시 인앱결제 전용 명시)
 - **다음 업데이트에서 조치 예정**: 앱 내 "프리미엄" 문구 및 플랜 뱃지 제거
+
+**진행 방식 문의 (2문단, 순서가 중요)**
+- ① **새 빌드**: "현 build 8은 이미 준수 상태라고 판단한다"를 **먼저** 못박고 → "그럼에도 새 빌드가 필요하다고 판단하시면 알려달라, 즉시 준비·업로드하겠다"
+  - ⚠️ 순서를 뒤집어 "필요하면 빌드 내겠다"를 앞세우면 심사관이 그대로 받아들여 **빌드 재작성 + 심사 큐 재진입**을 요구할 확률이 올라감. 준수 주장 → 협조 제안 순서 유지할 것
+- ② **절차 확인**: ASC 상태가 `Unresolved Issues`임을 언급하고, 심사 재개를 위해 우리 쪽 조치(기존 빌드 재제출 등)가 필요하면 알려달라 → 알려주면 즉시 이행
+  - 이걸로 "답장만 하면 되나 / 재제출해야 하나" 불확실성을 **심사관에게 직접 확인**받음. 72시간 헛기다림 방지
 - 필요하면 소스 코드/백엔드 설정도 보여드릴 수 있음
 
 ---
 
 ## 제출 전 체크리스트
 
-- [ ] `web/terms.html` 제11조 개정본 **배포 완료** (답장에서 URL을 인용하므로 반드시 선행 — Amplify 반영 확인)
-- [ ] https://dreamteller.io.kr/terms.html 실제 접속해서 개정 문구 노출 확인
+- [x] `web/terms.html` 제11조 개정본 **배포 완료** (2026-08-08, 커밋 `d8d9d86` push 후 약 45초 만에 Amplify 반영)
+- [x] https://dreamteller.io.kr/terms.html 라이브 확인 — "인앱결제(In-App Purchase)" 문구 노출 확인됨
 - [ ] ASC → 앱 심사 → Resolution Center에 위 영문 본문 게시
 - [ ] **새 빌드 업로드하지 않음** (build 8 유지, EAS 빌드 한도 미소비)
 - [ ] 게시 후 24~48시간 상태 모니터링 → `In Review` 복귀 확인
-- [ ] 72시간 경과에도 `해결되지 않은 문제` 유지 시 → 7/8 제출 상세에서 `Resubmit to App Review`(동일 build 8, 새 빌드 불필요)
+- [ ] **심사관 회신에 따른 분기** (답장에서 진행 방식을 직접 물었으므로 지시가 올 수 있음)
+  - "그대로 심사 계속" → 대기
+  - "기존 빌드 재제출하라" → 7/8 제출 상세에서 `Resubmit to App Review` (동일 build 8, 새 빌드 불필요)
+  - "새 빌드 내라" → 부록의 build 9 정리 대상 4건 반영 후 EAS 빌드 1회 소비
+- [ ] 회신 없이 72시간 경과 + `해결되지 않은 문제` 유지 시 → 자체 판단으로 `Resubmit to App Review`(동일 build 8)
 
 ---
 
