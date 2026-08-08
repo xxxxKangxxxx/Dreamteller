@@ -7,59 +7,59 @@
 
 ---
 
-## 붙여넣을 본문
+## 붙여넣을 본문 (3,839자 — ASC 4,000자 제한 내)
 
+> 아래 코드 블록 **전체를 그대로 복사**해서 붙여넣으세요. Resolution Center는 서식을 지원하지 않으므로 굵게/기호 없이 순수 텍스트로 작성했고, ASCII 외 문자(em dash 등)도 제거했습니다.
+
+```text
 Dear App Review Team,
 
 Thank you for the opportunity to clarify our business model.
 
-**DreamTeller is currently a completely free app. It contains no paid content, no subscriptions, and no purchasable features of any kind — neither through In-App Purchase nor through any external channel.** No money is collected from users anywhere, inside or outside the app. The app binary contains no payment, commerce, or subscription SDK of any kind.
+DreamTeller is currently a completely free app. It contains no paid content, no subscriptions, and no purchasable features of any kind, neither through In-App Purchase nor through any external channel. No money is collected from users anywhere, and the app binary contains no payment or commerce SDK.
 
-Below are our answers to each of your questions.
+1. Who are the users that will use the paid features in the app?
 
-**1. Who are the users that will use the paid features in the app?**
+There are no paid features, and therefore no paying users. Every user, signed in or using the app as a guest, has access to exactly the same functionality at no cost. There are no promotional codes or special account types that receive unlocked content.
 
-There are no paid features, and therefore no paying users. Every user — whether signed in or using the app as a guest — has access to exactly the same functionality at no cost. There is no user segment, promotional code, or account type that receives paid or unlocked content.
+2. Where can users purchase the features that can be accessed in the app?
 
-**2. Where can users purchase the features that can be accessed in the app?**
+Nowhere. There is no purchase flow, no payment form, no pricing page, and no external website or storefront where anything related to DreamTeller can be bought. Our website (https://dreamteller.io.kr) contains only an app introduction, our Privacy Policy, and our Terms of Service, with no commerce functionality.
 
-Nowhere. There is no purchase flow, no payment form, no pricing page, and no external website, storefront, or third-party platform where anything related to DreamTeller can be bought. Our website (https://dreamteller.io.kr) contains only an app introduction, our Privacy Policy, and our Terms of Service — it has no commerce functionality whatsoever.
+3. What specific types of previously purchased features can a user access in the app?
 
-**3. What specific types of previously purchased features can a user access in the app?**
+None. The app does not recognize, restore, or unlock any content or entitlement purchased elsewhere. There is no "Restore Purchases" function, because there is nothing that could be restored.
 
-None. The app does not recognize, restore, validate, or unlock any content or entitlement purchased elsewhere. There is no "Restore Purchases" function in the app, because there is nothing that could be restored. No account arrives in the app with pre-existing paid entitlements.
+4. What paid content, subscriptions, or features are unlocked within the app that do not use In-App Purchase?
 
-**4. What paid content, subscriptions, or features are unlocked within the app that do not use In-App Purchase?**
+None. We would like to explain the likely source of the confusion directly.
 
-None. We would like to explain the likely source of the confusion directly and transparently, rather than simply denying it.
-
-Our app internally assigns every account a "plan" field, and the Settings screen displays that value as a small badge reading "FREE". One message in the interpretation screen also refers to a future "Premium" tier. **These are placeholder labels for a tier that does not exist and cannot be obtained by anyone.** Specifically:
+Our app internally assigns every account a "plan" field, and the Settings screen shows that value as a small badge reading "FREE". One message in the interpretation screen also refers to a future "Premium" tier. These are placeholder labels for a tier that does not exist and cannot be obtained by anyone:
 
 - Every account is created with the plan value "FREE" and remains "FREE" permanently.
-- There is no code path — in the app or on our backend server — that can change an account's plan value. No endpoint, no purchase handler, no promotional mechanism, and no administrative flow exists to grant a different plan.
-- Consequently, no feature in the app is gated behind a payment. Nothing is locked, and nothing can be unlocked by paying.
+- No code path exists, in the app or on our backend, that can change an account's plan. There is no endpoint, purchase handler, or administrative flow that grants a different plan.
+- Consequently, no feature is gated behind a payment. Nothing is locked, and nothing can be unlocked by paying.
 
-The free plan applies identically to all users: up to 30 dream entries and 5 AI interpretations per month. These limits exist solely to control our AI API costs (the app uses a third-party generative AI service that bills per request). They are not a paywall, and there is no way for any user to lift them by paying.
+The free plan applies identically to all users: up to 30 dream entries and 5 AI interpretations per month. These limits exist solely to control our AI API costs, as the app uses a third-party generative AI service billed per request. They are not a paywall, and no user can lift them by paying.
 
-**Our commitment and the corrective actions we have taken**
+Corrective actions
 
-If we introduce a paid tier in the future, we will implement it exclusively through Apple's In-App Purchase system, in full compliance with Guideline 3.1.1. We will never direct users to an external purchase mechanism.
+If we introduce a paid tier in the future, we will implement it exclusively through Apple's In-App Purchase system, in full compliance with Guideline 3.1.1.
 
-To remove any ambiguity, we have already updated our public Terms of Service (https://dreamteller.io.kr/terms.html, Article 11). It now states explicitly that the service is entirely free with no payment mechanism in existence, and that any future paid service will be offered **only** through In-App Purchase.
+We have already updated our public Terms of Service (https://dreamteller.io.kr/terms.html, Article 11) to state explicitly that the service is entirely free with no payment mechanism in existence, and that any future paid service will be offered only through In-App Purchase. We will also remove the placeholder "Premium" wording and the plan badge from the app in our next update.
 
-We will also remove the placeholder "Premium" wording and the plan badge from the app in our next update, so that no future reviewer encounters the same ambiguity.
+How you would like us to proceed
 
-**How you would like us to proceed**
+We believe the current build (1.0, build 8) is fully compliant as submitted. Should you nonetheless determine that a new build is required, for example one with the placeholder "Premium" wording removed, please let us know and we will upload it promptly.
 
-We believe the current build (1.0, build 8) is fully compliant as submitted, since no paid content or external purchase mechanism exists in it. Should you nonetheless determine that a new build is required to resolve this issue — for example, one with the placeholder "Premium" wording removed entirely — please let us know and we will prepare and upload it promptly.
+We also note that this submission currently shows a status of "Unresolved Issues" in App Store Connect. If any action is required on our side for the review to continue, such as resubmitting the existing build, please let us know and we will act on it immediately.
 
-We also note that this submission currently shows a status of "Unresolved Issues" in App Store Connect. If any action is required on our side for the review to continue — such as resubmitting the existing build — we would be grateful if you could let us know, and we will act on it immediately.
-
-We hope this fully addresses your questions, and we are happy to provide any further detail — including a walkthrough of the relevant source code or backend configuration — if that would be helpful.
+We are happy to provide any further detail, including a walkthrough of the relevant source code or backend configuration.
 
 Best regards,
 Yeongmo Kang
 Developer, DreamTeller
+```
 
 ---
 
