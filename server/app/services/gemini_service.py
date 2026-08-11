@@ -17,6 +17,49 @@ logger = logging.getLogger("gemini")
 MAX_RETRIES = 3
 BASE_BACKOFF_S = 1.5
 
+# gemini-2.5-flash 단가 (USD / 1M 토큰). thinking 토큰은 출력 단가로 과금된다.
+# 단가가 바뀌면 여기만 고치면 되고, 로그에는 토큰 수가 원본 그대로 남으므로
+# 나중에 다른 단가로 재계산하는 것도 가능하다.
+PRICE_IN_PER_1M = 0.30
+PRICE_OUT_PER_1M = 2.50
+
+
+def _log_usage(call: str, usage: Any, **extra: Any) -> None:
+    """Gemini 응답의 토큰 사용량을 한 줄로 남긴다.
+
+    호출 종류(chat/title/interpret)별 실단가를 분리하기 위한 것 —
+    지금은 꿈 1건 총액만 알고 대화:제목:해몽 비율을 모른다(IMPROVEMENTS S-1).
+
+    `thoughts`는 thinking 토큰. 응답 본문에는 안 보이지만 출력 단가로 과금되므로
+    cost 계산에 candidates와 함께 넣는다. total을 같이 남기는 이유는
+    total == prompt + candidates + thoughts 가 실제로 성립하는지 로그로
+    검증하기 위함 — SDK/모델에 따라 집계 방식이 다를 수 있어 가정하지 않는다.
+    """
+    if usage is None:
+        logger.info("gemini usage call=%s usage=unavailable", call)
+        return
+
+    def _n(name: str) -> int:
+        return getattr(usage, name, None) or 0
+
+    prompt = _n("prompt_token_count")
+    output = _n("candidates_token_count")
+    thoughts = _n("thoughts_token_count")
+    total = _n("total_token_count")
+
+    usd = (prompt * PRICE_IN_PER_1M + (output + thoughts) * PRICE_OUT_PER_1M) / 1_000_000
+    detail = "".join(f" {k}={v}" for k, v in extra.items())
+    logger.info(
+        "gemini usage call=%s%s prompt=%s output=%s thoughts=%s total=%s usd=%.6f",
+        call,
+        detail,
+        prompt,
+        output,
+        thoughts,
+        total,
+        usd,
+    )
+
 LUNA_SYSTEM_PROMPT = """당신은 드림텔러의 꿈 기록 도우미 'Luna'입니다.
 
 역할:
@@ -78,8 +121,14 @@ def _collect_chunks(messages: list[ChatMessage], step: int) -> list[str]:
     empty_chunk_count = 0
     last_finish_reason: str | None = None
     last_block_reason: str | None = None
+    # 스트리밍은 청크마다 usage_metadata가 올 수 있고 뒤쪽 값이 누적치다.
+    # 마지막으로 받은 것을 최종 사용량으로 본다.
+    last_usage: Any = None
     for chunk in chat.send_message_stream(messages[-1].content):
         chunk_count += 1
+        usage = getattr(chunk, "usage_metadata", None)
+        if usage is not None:
+            last_usage = usage
         text = getattr(chunk, "text", None)
         if text:
             parts.append(text)
@@ -109,6 +158,7 @@ def _collect_chunks(messages: list[ChatMessage], step: int) -> list[str]:
         last_finish_reason,
         last_block_reason,
     )
+    _log_usage("chat", last_usage, step=step)
     if not parts:
         logger.warning(
             "gemini chat returned NO TEXT (chunks=%s, finish=%s, block=%s) — "
@@ -257,6 +307,7 @@ def generate_title(dream_content: str) -> str:
                 ],
                 config=types.GenerateContentConfig(system_instruction=TITLE_SYSTEM_PROMPT),
             )
+            _log_usage("title", getattr(response, "usage_metadata", None))
             raw = (response.text or "").strip()
             title = raw.split("\n", 1)[0].strip().strip("\"'").rstrip(".!?")
             if len(title) > 30:
@@ -296,6 +347,7 @@ def generate_interpretation(dream_content: str) -> dict:
                     response_mime_type="application/json",
                 ),
             )
+            _log_usage("interpret", getattr(response, "usage_metadata", None), attempt=attempt + 1)
             text = response.text or "{}"
             try:
                 data = json.loads(text)
