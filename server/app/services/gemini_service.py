@@ -305,7 +305,15 @@ def generate_title(dream_content: str) -> str:
                         ],
                     )
                 ],
-                config=types.GenerateContentConfig(system_instruction=TITLE_SYSTEM_PROMPT),
+                config=types.GenerateContentConfig(
+                    system_instruction=TITLE_SYSTEM_PROMPT,
+                    # thinking 비활성화. 2026-08-11 실측에서 제목 생성 한 번이
+                    # thoughts 866 / output 7 토큰을 썼다 — 9글자 제목을 뽑는 데
+                    # 그 호출 비용의 92%가 보이지 않는 추론에 들어갔다.
+                    # 5~15자 결과물이라 추론이 품질에 기여할 여지가 없어서 끈다.
+                    # (대화·해몽은 유지 — 해몽은 thinking이 실제로 일하는 것으로 판단)
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             )
             _log_usage("title", getattr(response, "usage_metadata", None))
             raw = (response.text or "").strip()
