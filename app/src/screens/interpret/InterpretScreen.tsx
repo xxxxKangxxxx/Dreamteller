@@ -347,7 +347,12 @@ export function InterpretScreen() {
             <Text style={styles.modalEmoji}>🌙</Text>
             <Text style={styles.modalTitle}>이번 달 해몽을 모두 사용했어요</Text>
             <Text style={styles.modalBody}>
-              해몽은 한 달에 {interpretLimit?.limit ?? 5}번까지 받을 수 있어요.{'\n'}
+              {/* 한도는 서버(/stats/usage)가 진실 소스. 숫자를 하드코딩해두면 서버에서
+                  한도를 바꿔도 앱이 옛 값을 보여준다(기존 `?? 5`가 그런 폴백이었는데,
+                  이 모달은 interpretLimit이 있어야 뜨므로 애초에 죽은 코드였다). */}
+              해몽은 한 달에{' '}
+              {interpretLimit ? `${interpretLimit.limit}번` : '정해진 횟수'}까지 받을 수
+              있어요.{'\n'}
               다음 달 1일에 다시 초기화되니 그때 또 만나요.{'\n'}
               그동안에도 꿈 기록과 아카이브는 그대로 사용할 수 있어요.
             </Text>

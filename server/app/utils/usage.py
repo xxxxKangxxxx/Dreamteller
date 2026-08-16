@@ -8,7 +8,16 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 # 플랜별 월간 한도: (꿈 기록, 해몽)
-PLAN_LIMITS: dict[str, tuple[int, int]] = {"FREE": (30, 5), "PREMIUM": (9999, 9999)}
+#
+# 해몽 한도는 2026-08-16에 5 → 30으로 상향했다(S-3).
+# 5는 7/15에 정한 값인데 그때는 ① Gemini 실단가를 몰랐고(실측은 8/11) ② 출시 전이라
+# 사용자가 0명이었다. 실사용해보니 **꿈은 30건인데 해몽은 5건(1/6)** 이라 불균형이
+# 컸고, "기록한 꿈은 다 해몽 받을 수 있다"가 훨씬 이해하기 쉽다.
+#
+# 비용(실측 기준 해몽 ₩9~15, 나머지 ₩1.6): 극단 사용자 월 약 ₩408.
+# Gemini 월 지출 캡 ₩15,000 기준 약 36명 수용 — 현재 실사용자의 10배다.
+# 캡은 백스톱이고 1차 방어선은 이 한도라는 구조는 그대로다(IMPROVEMENTS 1-1a).
+PLAN_LIMITS: dict[str, tuple[int, int]] = {"FREE": (30, 30), "PREMIUM": (9999, 9999)}
 
 # 기록 대화(chat) 유저별 일일 호출 한도 — 정상 사용은 하루 10~20회 수준
 CHAT_DAILY_LIMIT = 100
