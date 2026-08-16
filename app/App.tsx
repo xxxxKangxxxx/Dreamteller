@@ -80,7 +80,9 @@ export default function App() {
     void hydrate();
     void hydrateSettings();
     setUnauthorizedHandler(() => {
-      void useAuthStore.getState().logout();
+      // logout()이 아니라 sessionExpired() — signOut()으로 Supabase 세션까지
+      // 파괴하면 재로그인 수단이 없는 게스트는 기록을 영구히 잃는다.
+      void useAuthStore.getState().sessionExpired();
     });
     return () => setUnauthorizedHandler(null);
   }, [hydrate, hydrateSettings]);

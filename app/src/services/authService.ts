@@ -10,18 +10,8 @@ import type { User } from '@/types/user';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type AuthProvider = 'apple' | 'google' | 'email';
-
-export interface LoginPayload {
-  provider: AuthProvider;
-  idToken: string;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-}
+// AuthProvider / LoginPayload / LoginResponse는 삭제된 `/auth/*` 계약의 타입이라
+// 함께 제거했다. 실제 provider 분기는 Supabase SDK 호출부에서 직접 다룬다.
 
 export interface SupabaseSessionResult {
   user: User;
@@ -251,30 +241,12 @@ export const supabaseAuth = {
   },
 };
 
+// 백엔드에는 `/auth/*` 라우트가 없다 — 인증은 전부 Supabase가 직접 처리한다.
+// 여기 있던 login/refresh/logout은 호출처가 0인 죽은 코드였고(CODE_REVIEW A2),
+// 그중 refresh는 api.ts가 흉내 내다 강제 로그아웃 버그(A1)를 만들었다.
+// 없는 엔드포인트를 부르는 함수를 남겨두면 같은 실수가 반복되므로 삭제한다.
+// 이 서비스에서 실제로 백엔드를 타는 것은 deleteAccount 하나뿐이다.
 export const authService = {
-  login(payload: LoginPayload) {
-    return request<LoginResponse>({
-      method: 'POST',
-      url: '/auth/login',
-      data: payload,
-    });
-  },
-
-  refresh(refreshToken: string) {
-    return request<{ accessToken: string }>({
-      method: 'POST',
-      url: '/auth/refresh',
-      data: { refreshToken },
-    });
-  },
-
-  logout() {
-    return request<{ success: true }>({
-      method: 'DELETE',
-      url: '/auth/logout',
-    });
-  },
-
   deleteAccount() {
     return request<{ deleted: true }>({
       method: 'DELETE',

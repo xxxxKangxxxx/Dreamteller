@@ -52,12 +52,24 @@ interpret.py:132-148 — 인증만 통과하면 **다른 유저의 dream_id**로
 문제 연쇄 (`app/src/services/api.ts:55-72`):
 1. 미러가 stale해지는 창이 존재 — 장시간 백그라운드 후 복귀 시 Supabase 갱신 타이머보다 화면의 API 호출이 먼저 나가면 만료 토큰으로 요청 → 401
 2. 401 시 `refreshAccessToken()`이 `POST /auth/refresh`를 호출하는데 **백엔드에 `/auth/*` 라우트가 없음** (main.py 라우터 4개뿐) → 항상 실패
-3. → `tokenStorage.clear()` + `onUnauthorized()` = **Supabase 세션은 멀쩡한데 강제 로그아웃**. 게다가 Supabase 세션은 안 지워져서 다음 콜드스타트에 hydrate가 다시 로그인시킴 — 상태 불일치
+3. → `tokenStorage.clear()` + `onUnauthorized()` = **Supabase 세션은 멀쩡한데 강제 로그아웃**
 
-**수정 방향**: 미러 제거. axios 요청 인터셉터에서 `supabase.auth.getSession()`으로 토큰 획득(만료 시 SDK가 자동 갱신) → 401 재시도도 `refreshSession()` 기반으로. `tokenStorage`·`refreshAccessToken()` 삭제.
+**⚠️ 2026-08-16 재조사에서 이 항목의 3번 기술이 틀렸음이 확인됨** — 원문은 *"Supabase 세션은 안 지워져서 다음 콜드스타트에 hydrate가 다시 로그인시킴"* 이라고 적었으나, `onUnauthorized`가 `authStore.logout()`을 부르고 그 안에서 **`supabaseAuth.signOut()`이 실행돼 Supabase 세션까지 파괴**된다. 즉 재시작해도 복구되지 않고 다시 로그인해야 한다.
 
-### A2. 🔴 죽은 코드 — `authService.login / refresh / logout`
-`authService.ts:254-277` — `/auth/login`·`/auth/refresh`·`/auth/logout` 백엔드 미존재(인증은 전부 Supabase 직접). 실사용은 `deleteAccount()`뿐. 나머지는 삭제 (A1과 한 번에).
+**그래서 심각도가 더 높다 — 게스트(익명) 사용자는 데이터 영구 손실**: `signInAnonymously`로 만든 계정은 자격증명이 없어 한 번 `signOut`되면 **그 계정으로 다시 들어갈 방법이 없다.** "둘러보기"를 다시 눌러도 새 익명 계정이 생길 뿐이고, 기존 꿈은 DB에 남지만 접근 불가. 이 앱은 5.1.1 대응으로 게스트 진입을 전면에 두고 있어 노출 면적이 넓다.
+
+**도달 조건**: 콜드 스타트는 안전(`hydrate()` → `getSession()`이 갱신). 위험한 건 **백그라운드 1시간+ 뒤 warm resume** — RN에서 JS 타이머가 멈추는데 `startAutoRefresh`/`stopAutoRefresh`가 AppState에 연동돼 있지 않아, 갱신 타이머와 첫 API 호출이 **경쟁**한다. 경쟁 조건이라 항상 터지지는 않는다(8/11 스모크에서 미검출).
+
+**✅ 최소 수정 완료 (2026-08-16)** — 강제 로그아웃 경로 차단:
+1. `refreshAccessToken()`이 없는 엔드포인트 대신 **`supabase.auth.refreshSession()`** 사용
+2. **AppState ↔ `startAutoRefresh`/`stopAutoRefresh` 연동** (supabase-js RN 권장 배선) — 경쟁 자체를 제거
+3. `onUnauthorized` → `logout()` 대신 **`sessionExpired()`** (로컬 상태만 정리, **`signOut()` 안 부름**) — 일시적 네트워크 실패로 게스트 계정이 파괴되지 않게
+
+**⬜ 남은 전체 리팩터** — 미러(`tokenStorage`) 제거하고 요청 인터셉터를 `getSession()` 기반으로 전환 + C1 정리. **build 9 실기기 인증 회귀 테스트와 함께** 진행할 것.
+
+### ~~A2.~~ ✅ **완료(2026-08-16)** 죽은 코드 — `authService.login / refresh / logout`
+`/auth/login`·`/auth/refresh`·`/auth/logout` 백엔드 미존재(인증은 전부 Supabase 직접), 호출처 0. **삭제 완료** — 딸린 타입 `AuthProvider`/`LoginPayload`/`LoginResponse`도 함께. 실사용은 `deleteAccount()`뿐.
+> 없는 엔드포인트를 부르는 함수를 남겨둔 것이 A1을 만든 원인이므로 재발 방지 차원에서도 제거가 맞다.
 
 ### A3. 🟠 `_jobs` 인메모리 잡 스토어 — 누수 + 재시작 취약 — ✅ 코드 완료(`dc958f1`, 07-15) + 배포 완료(07-15) (누수만 해소, 재시작 소실·멀티워커는 잔존 한계로 수용)
 `interpret.py:18` `_jobs: dict[str, str]`:
@@ -104,7 +116,7 @@ interpret.py:132-148 — 인증만 통과하면 **다른 유저의 dream_id**로
 | 2 | S2+S3 사용량 강제 + 입력 제한 | 중 | 출시 직후 최우선 — Gemini 비용 방어의 실질 수단 |
 | 3 | A3 `_jobs` pop 정리 | 3줄 | 서버만 |
 | 4 | E1 select 컬럼 축소 | 1줄 | 서버만 |
-| 5 | A1+A2+C1 토큰 관리 단일화 + 죽은 코드 제거 | 대 | **앱 빌드 필요** — 다음 빌드 사이클에 묶기, 인증 회귀 테스트 필수 |
+| 5 | ~~A1+A2+C1~~ → **A1 최소 수정 + A2 완료(2026-08-16)** / A1 전체·C1 잔여 | 중 → 대 | 최소 수정으로 강제 로그아웃 경로는 차단됨. 미러 제거 전체 리팩터는 **build 9 실기기 인증 회귀 테스트와 함께** |
 | 6 | E2 title 백그라운드화, S4/C2, E3 | 중 | 여유 시 |
 | 7 | S5~S7, C3~C5, E4 | 소 | 백로그 |
 

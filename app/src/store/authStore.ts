@@ -14,6 +14,7 @@ interface AuthState {
   login: (params: { user: User; accessToken: string; refreshToken: string }) => Promise<void>;
   continueAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
+  sessionExpired: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
 }
@@ -90,6 +91,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // 네트워크 등 실패해도 로컬 세션은 정리
     }
+    await tokenStorage.clear();
+    set({ status: 'unauthenticated', user: null });
+  },
+
+  /**
+   * 토큰 갱신에 실패해 401이 확정됐을 때 부른다.
+   *
+   * `logout()`과 달리 **`signOut()`을 부르지 않는다.** 네트워크 오류 같은 일시적
+   * 실패로 Supabase 세션을 파괴하면, 재로그인 수단이 없는 **게스트(익명) 사용자는
+   * 자기 꿈 기록에 영구히 접근할 수 없게 된다** — "둘러보기"를 다시 눌러도 새 익명
+   * 계정이 생길 뿐이다.
+   *
+   * 로컬 상태만 정리해 로그인 화면으로 보내고, 세션이 실제로 살아 있으면 다음
+   * 콜드 스타트의 `hydrate()`가 복구한다.
+   */
+  async sessionExpired() {
     await tokenStorage.clear();
     set({ status: 'unauthenticated', user: null });
   },
