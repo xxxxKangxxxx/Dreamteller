@@ -27,9 +27,9 @@ import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import { useRecordSession } from '@/hooks/useRecordSession';
 import type { RootStackParamList } from '@/navigation/types';
-import { useRecordStore } from '@/store/recordStore';
+import { countFilledSlots, EMPTY_SLOTS, useRecordStore } from '@/store/recordStore';
 import { useUIStore } from '@/store/uiStore';
-import type { ChatMessage } from '@/types/dream';
+import { type ChatMessage, DREAM_SLOT_KEYS } from '@/types/dream';
 import { sessionStorage } from '@/utils/sessionStorage';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'RecordChat'>;
@@ -150,7 +150,9 @@ export function RecordChatScreen() {
   }, [input, isStreaming, send, showToast]);
 
   const canSend = input.trim().length > 0 && !isStreaming;
-  const currentStep = session?.step ?? 1;
+  // 진행 표시는 턴 수가 아니라 채워진 슬롯 수 — 한 번에 다 말하면 그만큼 건너뛴다.
+  const slots = session?.slots ?? EMPTY_SLOTS;
+  const filledSlots = countFilledSlots(slots);
   const insets = useSafeAreaInsets();
 
   return (
@@ -165,7 +167,20 @@ export function RecordChatScreen() {
         >
           <Ionicons name="close" size={28} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.stepIndicator}>{currentStep}/5단계</Text>
+        <View
+          style={styles.progress}
+          accessibilityRole="progressbar"
+          accessibilityLabel={`꿈 정보 ${filledSlots}개 담김, 전체 ${DREAM_SLOT_KEYS.length}개`}
+        >
+          <View style={styles.dots}>
+            {DREAM_SLOT_KEYS.map((key) => (
+              <View key={key} style={[styles.dot, slots[key] ? styles.dotFilled : null]} />
+            ))}
+          </View>
+          <Text style={styles.progressLabel}>
+            {filledSlots}/{DREAM_SLOT_KEYS.length} 담김
+          </Text>
+        </View>
         <View style={styles.headerRight} />
       </View>
 
@@ -245,7 +260,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  stepIndicator: {
+  progress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dots: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  dotFilled: {
+    backgroundColor: colors.primaryLight,
+  },
+  progressLabel: {
     ...textStyles.label,
     color: colors.textSecondary,
   },

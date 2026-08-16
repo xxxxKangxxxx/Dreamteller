@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.deps.auth import get_current_user_id
 from app.schemas.dream import ChatMessage
-from app.services.gemini_service import generate_interpretation, stream_chat
+from app.services.gemini_service import chat_turn, generate_interpretation
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
@@ -29,37 +29,45 @@ class GeneratePayload(BaseModel):
     dreamId: str
 
 
-RECORD_COMPLETE_TOKEN = "[RECORD_COMPLETE]"
-
-
 @router.post("/chat")
 def chat(payload: ChatPayload, user_id: UserId) -> dict[str, Any]:
     ensure_chat_quota(user_id)
-    next_step = min(payload.step + 1, 5)
+    # payload.step은 build 8 하위 호환을 위해 받기만 하고 진행 판정에는 쓰지 않는다.
+    # 진실 소스는 messages — 사용자 발화 수가 곧 현재 턴이다(서버는 stateless 유지).
+    turn = sum(1 for m in payload.messages if m.role == "user")
     logger.info(
-        "interpret/chat enter session=%s step=%s msgs=%s last_role=%s last_len=%s",
+        "interpret/chat enter session=%s turn=%s msgs=%s last_role=%s last_len=%s",
         payload.sessionId,
-        payload.step,
+        turn,
         len(payload.messages),
         payload.messages[-1].role if payload.messages else None,
         len(payload.messages[-1].content) if payload.messages else 0,
     )
 
-    parts: list[str] = list(stream_chat(payload.messages, payload.step))
-    text = "".join(parts)
-    complete = RECORD_COMPLETE_TOKEN in text
-    if complete:
-        text = text.replace(RECORD_COMPLETE_TOKEN, "").rstrip()
+    result = chat_turn(payload.messages, turn)
+    slots: dict[str, str | None] = result["slots"]
+    filled = sum(1 for v in slots.values() if v)
 
     logger.info(
-        "interpret/chat done session=%s chars=%s next_step=%s complete=%s",
+        "interpret/chat done session=%s turn=%s chars=%s filled=%s/%s complete=%s",
         payload.sessionId,
-        len(text),
-        next_step,
-        complete,
+        turn,
+        len(result["reply"]),
+        filled,
+        len(slots),
+        result["complete"],
     )
 
-    return success({"text": text, "nextStep": next_step, "complete": complete})
+    return success(
+        {
+            "text": result["reply"],
+            # build 8은 이 값으로 "N/5단계"를 표시한다. 턴이 아니라 채워진 슬롯 수로
+            # 환산해 내려주므로, 한 번에 다 말하면 옛 앱에서도 단계가 건너뛰어 보인다.
+            "nextStep": min(filled + 1, 5),
+            "complete": result["complete"],
+            "slots": slots,
+        }
+    )
 
 
 def _payload_for_db(result: dict[str, Any]) -> dict[str, Any]:

@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from collections.abc import Iterator
 from functools import lru_cache
 from typing import Any
 
@@ -60,6 +59,25 @@ def _log_usage(call: str, usage: Any, **extra: Any) -> None:
         usd,
     )
 
+# 꿈 기록에 필요한 정보 슬롯. 이 4개가 모두 채워지면 대화를 끝낸다.
+# 진행을 턴 수가 아니라 "정보가 모였는가"로 판정하기 위한 축 — PROMPT_GUIDE.md §1 참조.
+DREAM_SLOTS = ("place", "people", "event", "emotion")
+
+# 슬롯이 계속 안 채워져도 이 턴에서는 강제로 마무리한다(무한 되묻기 방지).
+MAX_CHAT_TURNS = 5
+
+# "기억이 안 나"도 채워진 것으로 취급해야 다시 묻지 않는다.
+UNKNOWN_SLOT_VALUE = "기억나지 않음"
+
+# 모델이 reply를 비워 보냈을 때만 쓰는 결정적 폴백. 대화가 멈추는 것보다 낫다.
+SLOT_FALLBACK_QUESTIONS = {
+    "place": "그 꿈은 어디에서 일어났어?",
+    "people": "그 자리에 누가 있었어? 혼자였다면 혼자라고 말해줘도 괜찮아",
+    "event": "거기서 어떤 일이 있었어?",
+    "emotion": "그때 기분은 어땠어?",
+}
+COMPLETE_FALLBACK_REPLY = "이 정도면 꿈을 잘 담은 것 같아. 정리해볼게"
+
 LUNA_SYSTEM_PROMPT = """당신은 드림텔러의 꿈 기록 도우미 'Luna'입니다.
 
 역할:
@@ -67,18 +85,39 @@ LUNA_SYSTEM_PROMPT = """당신은 드림텔러의 꿈 기록 도우미 'Luna'입
 - 전문적이거나 딱딱한 말투가 아닌, 친한 친구처럼 자연스럽고 부드러운 말투를 사용하세요.
 - 이모지나 이모티콘은 사용하지 마세요. 담백하고 깔끔한 문장으로만 대화하세요.
 
-대화 규칙:
-1. 한 번에 하나의 질문만 하세요. 여러 질문을 동시에 하지 마세요.
-2. 사용자의 답변에서 핵심 요소(장소, 인물, 사건, 감정)를 자연스럽게 끌어내세요.
-3. 사용자가 "기억이 안 나", "모르겠어"라고 하면 압박하지 말고 다음 단계로 넘어가세요.
-4. 각 단계별 질문 흐름:
-   - Step 1 (장소): 꿈의 배경/공간
-   - Step 2 (인물): 등장인물 (혼자였을 수도 있음)
-   - Step 3 (사건): 핵심 사건이나 장면
-   - Step 4 (감정): 꿈 속에서 느낀 감정
-   - Step 5 (마무리): 충분한 정보 수집 후 요약 준비 신호
+수집할 정보(슬롯) — 아래 4가지가 모두 채워지면 대화를 끝냅니다:
+- place: 꿈의 장소나 배경
+- people: 등장인물 (혼자였다면 '혼자'도 유효한 답입니다)
+- event: 핵심 사건이나 장면
+- emotion: 꿈에서 느낀 감정
 
-응답 언어: 한국어"""
+대화 규칙:
+1. 매 턴마다 지금까지의 대화 전체를 다시 읽고, 각 슬롯이 이미 채워졌는지 판정하세요.
+   사용자가 한 번의 답변에서 여러 슬롯을 동시에 말했다면 그것을 모두 인정하세요.
+2. 이미 채워진 슬롯은 절대 다시 묻지 마세요.
+   사용자가 방금 말한 내용을 되묻는 것은 가장 나쁜 경험입니다.
+3. 아직 비어 있는 슬롯 중 하나만 골라 질문하세요. 한 번에 하나의 질문만 합니다.
+4. 사용자가 "기억이 안 나", "모르겠어"라고 하면 그 슬롯은 "기억나지 않음"으로
+   채워진 것으로 간주하고 다시 묻지 마세요.
+5. 슬롯이 모두 채워지면 새 질문 없이 짧고 따뜻하게 마무리하세요.
+
+응답 언어: 한국어
+
+아래 JSON 형식으로만 응답하세요:
+{
+  "reply": "사용자에게 보여줄 문장 (빈 슬롯에 대한 질문 하나, 또는 마무리 인사)",
+  "slots": {
+    "place": "채워졌으면 내용 요약, 아직이면 null",
+    "people": "채워졌으면 내용 요약, 아직이면 null",
+    "event": "채워졌으면 내용 요약, 아직이면 null",
+    "emotion": "채워졌으면 내용 요약, 아직이면 null"
+  },
+  "complete": false
+}"""
+
+FINAL_TURN_INSTRUCTION = """[중요] 마지막 턴입니다. 남은 슬롯이 있어도 더 묻지 말고,
+비어 있는 슬롯은 "기억나지 않음"으로 채운 뒤 complete를 true로 두고
+짧고 따뜻하게 마무리하세요."""
 
 
 @lru_cache(maxsize=1)
@@ -86,21 +125,35 @@ def _client() -> genai.Client:
     return genai.Client(api_key=settings.gemini_api_key)
 
 
-def _system_for_step(step: int) -> str:
-    # step 4(마지막 질문인 '감정'에 대한 답변)부터 마무리한다.
-    # 사용자가 추가로 입력하지 않아도 이 응답에서 바로 완료 토큰을 내보내 종료되게 한다.
-    if step >= 4:
-        return (
-            LUNA_SYSTEM_PROMPT
-            + "\n\n[중요] 마무리 단계입니다. 장소·인물·사건·감정 정보를 충분히 모았으니"
-            " 새로운 질문은 하지 말고, 짧고 따뜻하게 마무리하면서"
-            " 응답 끝에 반드시 다음 형식으로 끝내세요:"
-            "\n'이 정도면 꿈을 잘 담은 것 같아! 정리해볼게 [RECORD_COMPLETE]'"
-        )
-    return f"{LUNA_SYSTEM_PROMPT}\n\n현재 Step {step}/5"
+def _system_for_turn(is_final: bool) -> str:
+    if is_final:
+        return f"{LUNA_SYSTEM_PROMPT}\n\n{FINAL_TURN_INSTRUCTION}"
+    return LUNA_SYSTEM_PROMPT
 
 
-def _collect_chunks(messages: list[ChatMessage], step: int) -> list[str]:
+def _normalize_slots(raw: Any) -> dict[str, str | None]:
+    """모델이 돌려준 slots를 {슬롯명: 문자열|None}으로 강제한다.
+
+    모델이 리스트("people": ["친구", "엄마"])나 숫자를 뱉는 경우가 있어서
+    그대로 두면 클라이언트 표시가 깨진다. 여기서 문자열로 눕힌다.
+    """
+    data = raw if isinstance(raw, dict) else {}
+    slots: dict[str, str | None] = {}
+    for key in DREAM_SLOTS:
+        value = data.get(key)
+        if isinstance(value, list):
+            joined = ", ".join(str(v).strip() for v in value if str(v).strip())
+            slots[key] = joined or None
+        elif value is None or isinstance(value, bool):
+            slots[key] = None
+        else:
+            text = str(value).strip()
+            # 모델이 문자열 "null"/"없음"을 흘리는 경우가 있어 빈 값으로 본다.
+            slots[key] = None if text.lower() in ("", "null", "none") else text
+    return slots
+
+
+def _call_chat(messages: list[ChatMessage], turn: int, is_final: bool) -> dict[str, Any]:
     history: list[types.Content] = []
     for m in messages[:-1]:
         role = "user" if m.role == "user" else "model"
@@ -111,63 +164,48 @@ def _collect_chunks(messages: list[ChatMessage], step: int) -> list[str]:
 
     chat = _client().chats.create(
         model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(system_instruction=_system_for_step(step)),
+        config=types.GenerateContentConfig(
+            system_instruction=_system_for_turn(is_final),
+            response_mime_type="application/json",
+        ),
         history=history,
     )
 
     started = time.monotonic()
-    parts: list[str] = []
-    chunk_count = 0
-    empty_chunk_count = 0
-    last_finish_reason: str | None = None
-    last_block_reason: str | None = None
-    # 스트리밍은 청크마다 usage_metadata가 올 수 있고 뒤쪽 값이 누적치다.
-    # 마지막으로 받은 것을 최종 사용량으로 본다.
-    last_usage: Any = None
-    for chunk in chat.send_message_stream(messages[-1].content):
-        chunk_count += 1
-        usage = getattr(chunk, "usage_metadata", None)
-        if usage is not None:
-            last_usage = usage
-        text = getattr(chunk, "text", None)
-        if text:
-            parts.append(text)
-        else:
-            empty_chunk_count += 1
-        candidates = getattr(chunk, "candidates", None) or []
-        if candidates:
-            fr = getattr(candidates[0], "finish_reason", None)
-            if fr is not None:
-                last_finish_reason = str(fr)
-        feedback = getattr(chunk, "prompt_feedback", None)
-        if feedback is not None:
-            br = getattr(feedback, "block_reason", None)
-            if br is not None:
-                last_block_reason = str(br)
-
+    response = chat.send_message(messages[-1].content)
     elapsed = time.monotonic() - started
-    total_chars = sum(len(p) for p in parts)
+
+    text = (getattr(response, "text", None) or "").strip()
+    candidates = getattr(response, "candidates", None) or []
+    finish_reason = str(getattr(candidates[0], "finish_reason", None)) if candidates else None
+    feedback = getattr(response, "prompt_feedback", None)
+    block_reason = str(getattr(feedback, "block_reason", None)) if feedback else None
+
     logger.info(
-        "gemini chat step=%s chunks=%s empty=%s parts=%s chars=%s elapsed=%.2fs finish=%s block=%s",
-        step,
-        chunk_count,
-        empty_chunk_count,
-        len(parts),
-        total_chars,
+        "gemini chat turn=%s final=%s chars=%s elapsed=%.2fs finish=%s block=%s",
+        turn,
+        is_final,
+        len(text),
         elapsed,
-        last_finish_reason,
-        last_block_reason,
+        finish_reason,
+        block_reason,
     )
-    _log_usage("chat", last_usage, step=step)
-    if not parts:
+    _log_usage("chat", getattr(response, "usage_metadata", None), turn=turn)
+
+    if not text:
         logger.warning(
-            "gemini chat returned NO TEXT (chunks=%s, finish=%s, block=%s) — "
-            "client will see SSE done with no content",
-            chunk_count,
-            last_finish_reason,
-            last_block_reason,
+            "gemini chat returned NO TEXT (finish=%s, block=%s) — 폴백 응답으로 대체",
+            finish_reason,
+            block_reason,
         )
-    return parts
+        return {}
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        logger.warning("chat JSON parse failed — reply만 원문으로 살린다")
+        return {"reply": text}
+    return data if isinstance(data, dict) else {}
+
 
 
 INTERPRET_SYSTEM_PROMPT = """당신은 꿈 해석 전문가입니다.
@@ -378,17 +416,26 @@ def generate_interpretation(dream_content: str) -> dict:
     raise RuntimeError("unreachable")
 
 
-def stream_chat(messages: list[ChatMessage], step: int) -> Iterator[str]:
+def chat_turn(messages: list[ChatMessage], turn: int) -> dict[str, Any]:
+    """대화 한 턴을 처리한다 — Gemini 호출 1회로 답변과 슬롯 상태를 함께 받는다.
+
+    `turn`은 지금까지의 사용자 발화 수. `MAX_CHAT_TURNS`에 닿으면 남은 슬롯이
+    있어도 강제로 마무리한다(무한 되묻기 방지).
+
+    반환: {"reply": str, "slots": {슬롯명: str|None}, "complete": bool}
+    `complete`는 모델 판단이 아니라 **서버가 슬롯으로 계산**한다 — 모델이
+    complete만 잘못 뱉어 대화가 조기 종료되거나 안 끝나는 사고를 막기 위함.
+    """
     if not messages or messages[-1].role != "user":
         raise ValueError("last message must be from user")
 
+    is_final = turn >= MAX_CHAT_TURNS
+    data: dict[str, Any] | None = None
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
-            parts = _collect_chunks(messages, step)
-            for p in parts:
-                yield p
-            return
+            data = _call_chat(messages, turn, is_final)
+            break
         except genai_errors.ClientError as exc:
             code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
             logger.error(
@@ -415,5 +462,24 @@ def stream_chat(messages: list[ChatMessage], step: int) -> Iterator[str]:
                 time.sleep(BASE_BACKOFF_S * (2**attempt))
                 continue
             raise
-    if last_exc is not None:
-        raise last_exc
+    if data is None:
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("unreachable")
+
+    slots = _normalize_slots(data.get("slots"))
+    if is_final:
+        # 마지막 턴에서는 빈 슬롯을 '기억나지 않음'으로 메워 대화를 반드시 끝낸다.
+        slots = {k: (v or UNKNOWN_SLOT_VALUE) for k, v in slots.items()}
+    complete = all(slots[k] for k in DREAM_SLOTS)
+
+    reply = str(data.get("reply") or "").strip()
+    if not reply:
+        # 모델이 reply를 비웠어도 대화가 멈추면 안 된다.
+        if complete:
+            reply = COMPLETE_FALLBACK_REPLY
+        else:
+            missing = next(k for k in DREAM_SLOTS if not slots[k])
+            reply = SLOT_FALLBACK_QUESTIONS[missing]
+
+    return {"reply": reply, "slots": slots, "complete": complete}

@@ -1,14 +1,12 @@
-import type { RecordStep } from '@/store/recordStore';
-
-export const STEP_OPENING_QUESTIONS: Record<RecordStep, string> = {
-  1: '어젯밤 꿈 기억나? 먼저 꿈에서 어디에 있었는지 말해줘',
-  2: '거기서 누가 있었어? 아니면 혼자였어?',
-  3: '그래서 어떤 일이 있었어? 기억나는 장면이 있으면 얘기해줘',
-  4: '그때 어떤 감정이었어? 무서웠어, 신기했어, 아니면 다른 감정이었어?',
-  5: '마지막으로, 꿈에서 깨기 직전에 무슨 일이 있었어? 기억 안 나면 괜찮아',
-};
-
-export const RECORD_COMPLETE_SIGNAL = '[RECORD_COMPLETE]';
+/**
+ * 대화 첫 질문 — 개방형.
+ *
+ * 이전에는 단계별 질문 5개를 두고 1번(장소)만 던졌는데, 그 질문이 사용자를
+ * 단답으로 유도했다. 지금은 서버가 슬롯 채우기로 진행을 판정하므로
+ * (docs/PROMPT_GUIDE.md §1), 한 번에 다 쏟아내는 것이 최선 경로다.
+ * 그래서 첫 질문도 그것을 막지 않고 유도하는 형태여야 한다.
+ */
+export const OPENING_QUESTION = '어젯밤 어떤 꿈을 꿨어? 기억나는 대로 편하게 말해줘';
 
 export const FALLBACK_MESSAGES = {
   chatError: '연결에 실패했어요',

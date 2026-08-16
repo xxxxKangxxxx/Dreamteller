@@ -74,33 +74,43 @@ const { data: stats } = useMonthlyStats()
 - 채팅 UI (하단 입력창 + 상단 스크롤 가능 메시지 목록)
 - AI 말풍선: 왼쪽 정렬, 보라색 배경
 - 사용자 말풍선: 오른쪽 정렬, 어두운 배경
-- 상단: "X" 닫기 + 진행 단계 표시 (예: "2/5단계")
+- 상단: "X" 닫기 + **슬롯 진행 표시** (점 4개 + "3/4 담김")
 - 하단 입력창: 텍스트 입력 + 전송 버튼
 
-**AI 대화 흐름 (단계별)** — 이모지 없음 (Luna 프롬프트에서 이모지 금지)
+**AI 대화 흐름 — 슬롯 채우기 (2026-08-16 개편)** — 이모지 없음 (Luna 프롬프트에서 이모지 금지)
+
+이전에는 장소→인물→사건→감정을 **턴 수대로 기계적으로** 물어서, 사용자가 첫 답변에 다 말해도 **이미 답한 것을 또 묻는** 문제가 있었다. 지금은 **채워진 슬롯**으로 진행을 판정한다.
 ```
-Step 1 (장소): "어젯밤 꿈에서 어디에 있었어?"
-Step 2 (인물): "거기서 누가 있었어? 아니면 혼자였어?"
-Step 3 (사건): "무슨 일이 있었어? 기억나는 장면이 있어?"
-Step 4 (감정): "그때 어떤 감정이었어? 무서웠어, 신기했어, 아니면 다른 감정?"
-       → 감정(마지막 질문) 답변 턴에서 응답에 [RECORD_COMPLETE] 포함 → 추가 입력 없이 바로 마무리
-       → RecordSummaryScreen으로 이동
+첫 질문(개방형): "어젯밤 어떤 꿈을 꿨어? 기억나는 대로 편하게 말해줘"
+   ↓
+매 턴: 모델이 대화 전체를 다시 읽고 슬롯 4개를 재판정
+   place / people / event / emotion
+   ↓
+비어 있는 슬롯이 있으면 → 그중 하나만 질문 (이미 채워진 건 절대 재질문 금지)
+슬롯 4개가 다 차면      → complete → RecordSummaryScreen으로 이동
+   ↓
+최대 5턴 안전망: 그때까지 안 채워지면 빈 슬롯을 "기억나지 않음"으로 메우고 강제 종료
 ```
-> 백엔드 `_system_for_step` 마무리 분기는 `step>=4` (off-by-one 수정). 프롬프트 상세는 `docs/PROMPT_GUIDE.md`.
+- **최선 경로**: 1턴에 다 말하면 2턴째에 바로 완료. 진행 표시도 `●●●●`로 점프
+- `"기억 안 나"`도 채워진 것으로 간주 (안 그러면 무한 되묻기)
+- 프롬프트 전문·출력 스키마는 [`docs/PROMPT_GUIDE.md` §1](./PROMPT_GUIDE.md)
 
 **상태 (recordStore)**
 ```typescript
 interface RecordSession {
   sessionId: string
   messages: ChatMessage[]     // 전체 대화 내역
-  step: number                // 현재 단계 (1~5)
+  step: number                // 채워진 슬롯 수 + 1 (build 8 호환 환산값)
+  slots: DreamSlots           // { place, people, event, emotion } 각 string|null
   isCompleted: boolean
 }
 ```
+> 서버는 **stateless** — 슬롯을 저장하지 않고 매 턴 `messages` 전체로 재판정한다.
 
 **API 연결**
 - 사용자 메시지 전송 시: `POST /api/interpret/chat` 호출
-- **비-스트리밍 JSON 응답** (`{text, nextStep, complete}`). RN fetch가 SSE 미지원이라 SSE에서 전환. 백엔드가 Gemini chunk 누적 후 한 번에 반환, 클라는 typing dots로 대기 표시
+- **비-스트리밍 JSON 응답** (`{text, nextStep, complete, slots}`). RN fetch가 SSE 미지원이라 SSE에서 전환
+- ⚠️ `text`/`nextStep`/`complete`는 **build 8 하위 호환을 위해 제거 금지** — 자세한 건 `docs/API.md`
 
 **특이사항**
 - 키보드 올라올 때 메시지 목록 자동 스크롤

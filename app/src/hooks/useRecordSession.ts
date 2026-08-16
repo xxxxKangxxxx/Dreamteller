@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { STEP_OPENING_QUESTIONS } from '@/constants/prompts';
+import { OPENING_QUESTION } from '@/constants/prompts';
 import { interpretService } from '@/services/interpretService';
 import { type RecordStep, useRecordStore } from '@/store/recordStore';
 
@@ -18,6 +18,7 @@ export function useRecordSession() {
   const startSession = useRecordStore((s) => s.startSession);
   const appendMessage = useRecordStore((s) => s.appendMessage);
   const setStep = useRecordStore((s) => s.setStep);
+  const setSlots = useRecordStore((s) => s.setSlots);
   const complete = useRecordStore((s) => s.complete);
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -30,7 +31,7 @@ export function useRecordSession() {
     if (!fresh) throw new Error('세션을 시작할 수 없어요');
     appendMessage({
       role: 'assistant',
-      content: STEP_OPENING_QUESTIONS[1],
+      content: OPENING_QUESTION,
     });
     return useRecordStore.getState().session!;
   }, [appendMessage, session, startSession]);
@@ -71,6 +72,7 @@ export function useRecordSession() {
         if (result.text.length > 0) {
           appendMessage({ role: 'assistant', content: result.text });
         }
+        if (result.slots) setSlots(result.slots);
         if (isRecordStep(result.nextStep)) setStep(result.nextStep);
         if (result.complete) complete();
 
@@ -84,7 +86,7 @@ export function useRecordSession() {
         if (abortRef.current === controller) abortRef.current = null;
       }
     },
-    [appendMessage, complete, ensureSession, setStep],
+    [appendMessage, complete, ensureSession, setSlots, setStep],
   );
 
   const cancel = useCallback(() => {

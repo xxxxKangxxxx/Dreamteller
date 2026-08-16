@@ -1,4 +1,4 @@
-import type { ChatMessage, Interpretation } from '@/types/dream';
+import type { ChatMessage, DreamSlots, Interpretation } from '@/types/dream';
 
 import { request } from './api';
 
@@ -11,8 +11,11 @@ export interface ChatTurnPayload {
 
 export interface ChatTurnResponse {
   text: string;
+  /** 채워진 슬롯 수 + 1. build 8 호환용 환산값이라 신규 화면은 slots를 쓴다. */
   nextStep: number;
   complete: boolean;
+  /** 서버가 매 턴 재판정한 슬롯 상태. 구버전 서버 대비 optional. */
+  slots?: DreamSlots;
 }
 
 export const interpretService = {

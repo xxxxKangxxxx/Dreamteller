@@ -153,13 +153,29 @@ Query: page=1&limit=20&emotion=POSITIVE&from=2025-01-01&to=2025-12-31
 {
   "success": true,
   "data": {
-    "text": "오, 학교 건물이었구나. 교실이었어, 아니면 복도였어?",
-    "nextStep": 2,          // min(step+1, 5)
-    "complete": false       // 응답에 [RECORD_COMPLETE] 토큰이 있으면 true (토큰은 text에서 제거)
+    "text": "오, 학교 건물이었구나. 거기서 누구랑 있었어?",
+    "nextStep": 2,          // 채워진 슬롯 수 + 1 (하위 호환용 환산값)
+    "complete": false,      // 슬롯 4개가 모두 채워지면 true
+    "slots": {              // 🆕 2026-08-16 추가
+      "place": "학교 건물",
+      "people": null,
+      "event": null,
+      "emotion": null
+    }
   }
 }
 ```
-> `complete: true`가 오면 클라이언트는 추가 입력 없이 RecordSummary로 이동. 마지막 질문(감정, step 4) 답변 턴에서 바로 완료됨.
+> `complete: true`가 오면 클라이언트는 추가 입력 없이 RecordSummary로 이동.
+
+**진행 판정 방식 — 2026-08-16 전면 개편 (슬롯 채우기)**
+
+이전에는 `nextStep = min(step + 1, 5)`로 **답변 내용과 무관하게 턴만 세어서**, 사용자가 첫 답변에 다 말해도 이미 답한 것을 또 물었다. 지금은 **모델이 매 턴 대화 전체를 다시 읽고 슬롯 4개(`place`/`people`/`event`/`emotion`)의 충족 여부를 판정**한다. 프롬프트 전문은 [`PROMPT_GUIDE.md` §1](./PROMPT_GUIDE.md) 참조.
+
+- 요청의 `step`은 **받되 무시**한다 — 진실 소스는 `messages`이며 서버는 여전히 stateless
+- `"기억 안 나"` 답변도 슬롯이 채워진 것(`"기억나지 않음"`)으로 간주 — 안 그러면 무한 되묻기
+- 모델의 `complete`와 서버의 슬롯 계산이 어긋나면 **서버 계산을 신뢰**
+- **최대 5턴 안전망** — 슬롯이 안 차도 5턴째엔 강제 마무리
+- ⚠️ **하위 호환**: build 8이 스토어에 라이브이므로 `text`/`nextStep`/`complete`는 **절대 제거 금지**. `slots`는 추가 필드라 build 8은 무시한다 → **서버를 앱보다 먼저 배포해도 안전**
 
 ### POST /interpret/generate
 해몽 생성 요청 (꿈 저장 후 호출). 백엔드 `BackgroundTasks`로 비동기 생성, 멱등 처리.
