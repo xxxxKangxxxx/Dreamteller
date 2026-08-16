@@ -57,7 +57,9 @@ export function InterpretScreen() {
     interpretLimit !== undefined && interpretLimit.used >= interpretLimit.limit;
 
   const dreamDetail = useDreamDetail(dreamId);
-  const interpret = useInterpret(isQuotaOver ? undefined : dreamId);
+  // 한도를 넘겨도 조회는 막지 않는다 — 이미 받은 해몽은 계속 볼 수 있어야 하고,
+  // 서버도 새 잡을 시작할 때만 한도를 강제한다. 여기서는 "생성"만 잠근다.
+  const interpret = useInterpret(dreamId, { canGenerate: !isQuotaOver });
   const cardTokens = DREAM_CARD_STYLE;
 
   const dream = dreamDetail.data;
@@ -204,7 +206,7 @@ export function InterpretScreen() {
       </ScrollView>
 
       <Modal
-        visible={isQuotaOver === true}
+        visible={isQuotaOver === true && interpret.data?.status !== 'completed'}
         transparent
         animationType="fade"
         onRequestClose={() => navigation.goBack()}

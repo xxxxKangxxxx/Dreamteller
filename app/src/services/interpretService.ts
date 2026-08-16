@@ -25,8 +25,9 @@ export const interpretService = {
     });
   },
 
+  // 서버는 이미 해석이 있으면 새 잡을 만들지 않고 곧바로 completed를 돌려준다.
   generate(dreamId: string) {
-    return request<{ jobId: string; status: 'processing' }>({
+    return request<{ jobId: string; status: 'processing' | 'completed' }>({
       method: 'POST',
       url: '/interpret/generate',
       data: { dreamId },

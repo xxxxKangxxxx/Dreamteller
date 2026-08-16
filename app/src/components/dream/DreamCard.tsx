@@ -12,10 +12,7 @@ import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 
 interface DreamCardProps {
-  dream: Pick<
-    Dream,
-    'id' | 'title' | 'emotion' | 'dreamType' | 'illustrationUrl' | 'recordedAt' | 'hasInterpretation'
-  >;
+  dream: Pick<Dream, 'id' | 'title' | 'emotion' | 'illustrationUrl' | 'recordedAt'>;
   onPress: (id: string) => void;
 }
 
@@ -47,9 +44,6 @@ export function DreamCard({ dream, onPress }: DreamCardProps) {
               emotion={dream.emotion}
               label={EMOTION_META[dream.emotion].label}
             />
-            {dream.hasInterpretation ? (
-              <Badge variant="dreamType" dreamType={dream.dreamType} label="해몽 완료" />
-            ) : null}
           </View>
         </View>
       </View>
