@@ -79,7 +79,10 @@ export function InterpretScreen() {
   const dream = dreamDetail.data;
 
   // ── 줄거리 (B9-2) ────────────────────────────────────────────────
-  const [tab, setTab] = useState<DreamTab>('summary');
+  // '해몽 받기'를 눌러 들어왔으면 해몽 탭에서 시작한다. 버튼이 곧 사용자의
+  // 목적지 선언이므로, 줄거리를 먼저 보여주는 건 그 의도를 덮어쓰는 것이다.
+  // 기본값 '줄거리'는 홈·아카이브에서 그냥 꿈을 열었을 때 적용된다.
+  const [tab, setTab] = useState<DreamTab>(autoInterpret ? 'interpret' : 'summary');
   const generateSummary = useGenerateSummary();
   const summary = dream?.summary ?? null;
   // 줄거리가 없는 꿈을 열면 한 번만 자동 생성한다. 서버가 멱등이라 중복 호출은
@@ -247,6 +250,15 @@ export function InterpretScreen() {
               <View style={styles.loadingBlock}>
                 <StarParticleLoader />
                 <Text style={styles.loadingText}>꿈을 해석하는 중...</Text>
+                {/* 해몽은 15~20초, 줄거리는 2~3초라 먼저 준비된다.
+                    강제로 보여주지 않고 선택지로만 알린다. */}
+                {summary ? (
+                  <Pressable onPress={() => setTab('summary')} accessibilityRole="button">
+                    <Text style={styles.loadingHint}>
+                      줄거리는 준비됐어요 · 기다리는 동안 먼저 읽어보기
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
 
@@ -413,6 +425,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems: 'center',
     gap: spacing.base,
+  },
+  loadingHint: {
+    ...textStyles.label,
+    color: colors.primaryLight,
+    textDecorationLine: 'underline',
+    marginTop: spacing.sm,
   },
   loadingText: {
     ...textStyles.body,
