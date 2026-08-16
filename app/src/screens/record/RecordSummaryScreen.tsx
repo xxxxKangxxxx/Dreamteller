@@ -50,7 +50,7 @@ export function RecordSummaryScreen() {
 
   const [summary, setSummary] = useState(initialSummary);
   const [emotion, setEmotion] = useState<Emotion | null>(session?.emotion ?? null);
-  const [submitting, setSubmitting] = useState<'save' | 'interpret' | null>(null);
+  const [submitting, setSubmitting] = useState<'summary' | 'interpret' | null>(null);
 
   useEffect(() => {
     if (!session && route.params?.sessionId) {
@@ -81,7 +81,7 @@ export function RecordSummaryScreen() {
   }, [invalidateDreams, resetStore]);
 
   const submit = useCallback(
-    async (mode: 'save' | 'interpret') => {
+    async (mode: 'summary' | 'interpret') => {
       if (!session) return;
       const trimmed = summary.trim();
       if (!trimmed || !emotion || submitting) return;
@@ -95,18 +95,21 @@ export function RecordSummaryScreen() {
           recordedAt: session.startedAt,
         });
 
-        if (mode === 'interpret') {
-          // 해몽 생성은 기다리지 않고 바로 이동 — InterpretScreen의 useInterpret가
-          // 생성을 트리거하며 별빛 로더로 대기시간 전체를 덮는다 (체감 로딩 개선)
-          await finalize();
-          navigation.reset({
-            index: 1,
-            routes: [{ name: 'Tabs' }, { name: 'InterpretDetail', params: { dreamId: dream.id } }],
-          });
-        } else {
-          await finalize();
-          navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
-        }
+        // 두 경로 모두 상세 화면으로 간다. 줄거리 탭이 기본이라 어느 쪽으로 들어와도
+        // 줄거리를 먼저 보게 되고, 해몽(약 12초)은 그 뒤에서 생성된다.
+        // 차이는 `autoInterpret` 하나 — '줄거리 받기'는 해몽을 만들지 않아
+        // FREE 해몽 한도(월 5회)를 소모하지 않는다.
+        await finalize();
+        navigation.reset({
+          index: 1,
+          routes: [
+            { name: 'Tabs' },
+            {
+              name: 'InterpretDetail',
+              params: { dreamId: dream.id, autoInterpret: mode === 'interpret' },
+            },
+          ],
+        });
       } catch {
         showToast(FALLBACK_MESSAGES.chatError, 'error');
         setSubmitting(null);
@@ -115,7 +118,7 @@ export function RecordSummaryScreen() {
     [emotion, finalize, navigation, session, showToast, submitting, summary],
   );
 
-  const handleSave = useCallback(() => submit('save'), [submit]);
+  const handleSummary = useCallback(() => submit('summary'), [submit]);
   const handleInterpret = useCallback(() => submit('interpret'), [submit]);
 
   const canSubmit = summary.trim().length > 0 && emotion !== null && submitting === null;
@@ -210,11 +213,11 @@ export function RecordSummaryScreen() {
 
         <View style={styles.footer}>
           <Button
-            label="그냥 저장"
+            label="줄거리 받기"
             variant="secondary"
-            onPress={handleSave}
+            onPress={handleSummary}
             disabled={!canSubmit}
-            loading={submitting === 'save'}
+            loading={submitting === 'summary'}
             fullWidth
           />
           <Button

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { queryKeys } from '@/constants/queryKeys';
 import { ApiError } from '@/services/api';
@@ -11,7 +11,7 @@ const MAX_POLL_DURATION_MS = 60_000;
 
 const buildPlaceholder = (
   dreamId: string,
-  status: 'processing' | 'failed',
+  status: 'absent' | 'processing' | 'failed',
 ): Interpretation => ({
   dreamId,
   status,
@@ -29,16 +29,26 @@ interface UseInterpretOptions {
    * — 서버 `/interpret/generate`의 정책과 동일하게 맞춘 것.
    */
   canGenerate?: boolean;
+  /**
+   * 진입하자마자 해몽을 생성할지. 기록 완료 후 '해몽 받기'로 들어온 경우에만 true.
+   * 홈·아카이브 진입이나 '줄거리 받기' 경로에서 자동 생성되면 FREE 한도가
+   * 의도치 않게 소모되므로, 그때는 `requestGenerate()`를 눌러야 시작된다.
+   */
+  autoGenerate?: boolean;
 }
 
 export function useInterpret(dreamId: string | undefined, options: UseInterpretOptions = {}) {
-  const { canGenerate = true } = options;
+  const { canGenerate = true, autoGenerate = true } = options;
   const queryClient = useQueryClient();
   // 이 마운트에서 generate를 이미 쏜 dreamId와 그 시각.
   // 폴링(refetchInterval)이 queryFn 전체를 재실행하면서 generate까지 매번 다시 부르던 것을 막는다.
   const jobRef = useRef<{ dreamId: string; startedAt: number } | null>(null);
+  // 사용자가 '해몽 받기'를 눌렀는지. state가 아니라 ref인 이유는 queryFn이
+  // 클로저로 읽어야 하는데, state로 두면 onPress 시점의 refetch가 갱신 전 값을
+  // 보기 때문이다.
+  const requestedRef = useRef(false);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: dreamId ? queryKeys.interpret.detail(dreamId) : ['interpret', 'detail', 'pending'],
     queryFn: async () => {
       if (!dreamId) throw new Error('dreamId is required');
@@ -67,8 +77,12 @@ export function useInterpret(dreamId: string | undefined, options: UseInterpretO
           if (!(error instanceof ApiError && error.status === 404)) throw error;
         }
 
-        // 해몽이 없는데 한도를 넘겼으면 생성하지 않는다(서버 429를 미리 피한다).
-        if (!canGenerate) return buildPlaceholder(dreamId, 'failed');
+        // 아직 생성할 때가 아니면(한도 초과이거나, 사용자가 해몽을 요청하지 않았거나)
+        // 'absent'로 남긴다. 'failed'로 뭉개면 화면이 에러를 띄울지 '해몽 받기'
+        // 버튼을 띄울지 구분하지 못한다.
+        if (!canGenerate || !(autoGenerate || requestedRef.current)) {
+          return buildPlaceholder(dreamId, 'absent');
+        }
 
         // generate는 여기서 딱 한 번만. 서버가 (기존 해석 → 진행 중 잡) 순으로 먼저 확인하므로
         // 화면 재진입으로 다시 호출돼도 중복 Gemini 잡은 생기지 않는다.
@@ -95,4 +109,12 @@ export function useInterpret(dreamId: string | undefined, options: UseInterpretO
       query.state.data?.status === 'processing' ? POLL_INTERVAL_MS : false,
     staleTime: 0,
   });
+
+  // '해몽 받기' 버튼용. ref를 먼저 세우고 refetch해야 queryFn이 갱신된 값을 읽는다.
+  const requestGenerate = useCallback(() => {
+    requestedRef.current = true;
+    void query.refetch();
+  }, [query]);
+
+  return { ...query, requestGenerate };
 }

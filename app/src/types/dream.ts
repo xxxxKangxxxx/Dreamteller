@@ -60,7 +60,12 @@ export interface UnconsciousPart {
 
 export interface Interpretation {
   dreamId: string;
-  status: 'processing' | 'completed' | 'failed';
+  /**
+   * `absent`는 서버가 보내지 않는 **클라이언트 전용** 상태 — "아직 해몽을 요청한
+   * 적이 없다"를 뜻한다. 이게 없으면 "한도 초과"와 "미요청"이 둘 다 `failed`로
+   * 뭉개져서 화면이 에러를 띄울지 '해몽 받기' 버튼을 띄울지 구분할 수 없다.
+   */
+  status: 'absent' | 'processing' | 'completed' | 'failed';
   symbolAnalysis: SymbolAnalysisPart;
   psychologicalMeaning: PsychologicalPart;
   unconsciousMessage: UnconsciousPart;
