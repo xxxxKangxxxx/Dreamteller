@@ -382,13 +382,15 @@ SUMMARY_USER_TEMPLATE = """다음은 사용자와 나눈 꿈 기록 대화입니
 이 대화를 바탕으로 꿈 일기를 자연스러운 서술형 한국어로 정리해주세요.
 
 요구사항:
-- 150~300자 분량
 - 1인칭 시점 ("나는 ... 있었다")
 - 시제: 과거형
 - 대화에서 언급된 장소, 인물, 사건, 감정을 모두 포함
 - 언급되지 않은 내용은 추가하거나 상상해서 지어내지 말 것
 - 사용자가 "기억나지 않는다"고 한 부분은 굳이 언급하지 말고 자연스럽게 넘길 것
 - AI의 질문은 빼고, 사용자가 말한 꿈 내용만으로 구성할 것
+- 분량은 대화에 담긴 내용만큼만. 짧은 꿈은 100자 안팎이어도 좋고,
+  내용이 많아도 500자 안쪽으로.
+  분량을 채우려고 없는 내용을 지어내는 것이 가장 나쁘다.
 
 대화 내역:
 {chat_history}
@@ -456,6 +458,15 @@ def generate_summary(chat_history: list[dict[str, Any]] | None, raw_content: str
                 config=types.GenerateContentConfig(
                     system_instruction=SUMMARY_SYSTEM_PROMPT,
                     response_mime_type="application/json",
+                    # thinking 비활성화. 2026-08-16 실측(꿈 2건, 짧은 것/긴 것):
+                    #   기본값  thoughts=1109 / output=79  → ₩4.35, 5.69초
+                    #   budget 512               thoughts=450  → ₩2.10, 2.75초
+                    #   budget 0                 thoughts=0    → ₩0.40, 1.27초
+                    # 세 결과 모두 장소·인물·사건·감정을 빠짐없이 담았고 1인칭·과거형도
+                    # 지켰다 — 품질 차이가 미미한데 비용은 2~10배, 속도는 1.7~4.5배 난다.
+                    # 줄거리는 "대화에 이미 있는 내용의 재구성"이라 추론이 기여할 여지가
+                    # 작다는 판단. (해몽은 유지 — 거기선 thinking이 실제로 일한다)
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             _log_usage("summary", getattr(response, "usage_metadata", None), attempt=attempt + 1)
