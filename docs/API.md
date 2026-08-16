@@ -111,6 +111,7 @@ Query: page=1&limit=20&emotion=POSITIVE&from=2025-01-01&to=2025-12-31
     "tags": [],
     "hasInterpretation": true,
     "recordedAt": "...",
+    "summary": "나는 학교 복도에 있었다. ...",
     "chatHistory": [{ "role": "...", "content": "..." }],
     "interpretation": { /* 아래 GET /interpret 응답 구조와 동일, 없으면 null */ },
     "characters": [],
@@ -119,6 +120,28 @@ Query: page=1&limit=20&emotion=POSITIVE&from=2025-01-01&to=2025-12-31
 }
 ```
 > `characters`/`places`는 현재 항상 `[]` (아카이브 백엔드 미구현).
+> `summary`(줄거리)는 아직 생성하지 않았으면 `null`. **목록(`GET /dreams`)에는 포함하지 않는다** — E1에서 일부러 컬럼을 줄인 곳이고 줄거리는 상세에서만 쓰인다.
+
+### POST /dreams/{dream_id}/summary
+꿈 대화를 줄거리로 정리 (S-2, 2026-08-16 신설). **동기 처리** — 해몽(약 12초)과 달리 150~300자 재구성이라 비동기 잡 없이 바로 응답한다.
+```json
+// Request: 본문 없음
+
+// Response
+{
+  "success": true,
+  "data": {
+    "dreamId": "uuid",
+    "summary": "나는 학교 복도에 있었다. 친구가 함께 있었고 무서웠다.",
+    "cached": false
+  }
+}
+```
+- **멱등**: 이미 줄거리가 있으면 Gemini를 부르지 않고 기존 값 + `cached: true` 반환
+- **별도 사용량 한도 없음** — 멱등 덕에 꿈 1건당 최대 1회라 꿈 생성 한도(월 30건)가 곧 상한이다. 해몽 한도(월 5회)를 다 써도 줄거리 경로는 살아 있어야 하므로(B9-3) 의도적으로 한도를 걸지 않았다
+- 입력은 `chat_history`(없으면 `raw_content` 폴백). 프롬프트 전문은 [`PROMPT_GUIDE.md`](./PROMPT_GUIDE.md) §1
+- 대상 꿈이 없거나 타인 소유면 `404 DREAM_NOT_FOUND`
+- 생성 실패 시 `503 SUMMARY_GENERATION_FAILED` — 줄거리는 부가 기능이라 Gemini 실패가 예외로 터지지 않고 빈 값으로 내려온 뒤 여기서 503이 된다
 
 ### PATCH /dreams/{dream_id}
 꿈 수정 (요약본 편집 시). `rawContent` / `emotion` / `title` 중 보낸 필드만 반영. 빈 본문이면 `400 EMPTY_PATCH`.

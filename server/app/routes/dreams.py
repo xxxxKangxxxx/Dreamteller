@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.deps.auth import get_current_user_id
 from app.schemas.dream import CreateDreamPayload, UpdateDreamPayload
-from app.services.gemini_service import generate_title
+from app.services.gemini_service import generate_summary, generate_title
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
@@ -118,12 +118,53 @@ def get_dream(dream_id: str, user_id: UserId) -> dict[str, Any]:
     return success(
         {
             **_to_summary(row, has_interpretation=interp is not None),
+            # 줄거리는 상세에서만 내려준다 — 목록(E1)은 컬럼을 일부러 줄여둔 곳이다.
+            "summary": row.get("summary"),
             "chatHistory": row.get("chat_history") or [],
             "interpretation": interp,
             "characters": [],
             "places": [],
         }
     )
+
+
+@router.post("/{dream_id}/summary")
+def create_summary(dream_id: str, user_id: UserId) -> dict[str, Any]:
+    """꿈 대화를 줄거리로 정리한다 (S-2).
+
+    해몽(12초)과 달리 150~300자 재구성이라 비동기 잡 없이 동기로 처리한다.
+
+    **멱등** — 이미 줄거리가 있으면 Gemini를 부르지 않고 기존 값을 돌려준다.
+    이것이 사실상의 비용 상한이라(꿈 1건당 최대 1회) 별도 사용량 한도를 두지 않는다.
+    해몽 한도를 다 써도 줄거리 경로는 살아 있어야 하기 때문이기도 하다(B9-3).
+    """
+    sb = get_supabase()
+    res = (
+        sb.table("dreams")
+        .select("id, summary, chat_history, raw_content")
+        .eq("id", dream_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="DREAM_NOT_FOUND")
+    row = res.data[0]
+
+    existing = (row.get("summary") or "").strip()
+    if existing:
+        return success({"dreamId": dream_id, "summary": existing, "cached": True})
+
+    summary = generate_summary(row.get("chat_history"), row.get("raw_content") or "")
+    if not summary:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, detail="SUMMARY_GENERATION_FAILED"
+        )
+
+    sb.table("dreams").update({"summary": summary}).eq("id", dream_id).eq(
+        "user_id", user_id
+    ).execute()
+    return success({"dreamId": dream_id, "summary": summary, "cached": False})
 
 
 @router.patch("/{dream_id}")

@@ -198,6 +198,7 @@ create table public.dreams (
   user_id         uuid references public.profiles(id) on delete cascade,
   title           text,
   raw_content     text not null,
+  summary         text,             -- AI 줄거리 (S-2, 2026-08-16 추가). 미생성이면 null
   chat_history    jsonb,            -- [{role, content}] 배열
   emotion         text default 'NEUTRAL',  -- POSITIVE | NEGATIVE | NEUTRAL | MIXED
   illustration_url text,            -- MVP 이후 사용

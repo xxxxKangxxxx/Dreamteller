@@ -372,6 +372,121 @@ def generate_title(dream_content: str) -> str:
     return fallback
 
 
+SUMMARY_SYSTEM_PROMPT = """당신은 꿈 일기를 정리해주는 편집자입니다.
+사용자가 나눈 대화를 읽고, 꿈을 자연스러운 서술형 한국어로 정리해주세요.
+
+언어: 한국어"""
+
+
+SUMMARY_USER_TEMPLATE = """다음은 사용자와 나눈 꿈 기록 대화입니다.
+이 대화를 바탕으로 꿈 일기를 자연스러운 서술형 한국어로 정리해주세요.
+
+요구사항:
+- 150~300자 분량
+- 1인칭 시점 ("나는 ... 있었다")
+- 시제: 과거형
+- 대화에서 언급된 장소, 인물, 사건, 감정을 모두 포함
+- 언급되지 않은 내용은 추가하거나 상상해서 지어내지 말 것
+- 사용자가 "기억나지 않는다"고 한 부분은 굳이 언급하지 말고 자연스럽게 넘길 것
+- AI의 질문은 빼고, 사용자가 말한 꿈 내용만으로 구성할 것
+
+대화 내역:
+{chat_history}
+
+JSON 형식으로 응답:
+{{
+  "summary": "꿈 줄거리 텍스트"
+}}"""
+
+# 오래된 꿈은 대화가 길 수 있어 입력 토큰이 튄다. 줄거리는 200자 안팎 결과물이라
+# 대화 뒷부분만 있어도 충분하므로 앞을 잘라 상한을 둔다.
+SUMMARY_INPUT_MAX_CHARS = 6000
+
+
+def _format_chat_history(chat_history: list[dict[str, Any]] | None, raw_content: str) -> str:
+    """대화 내역을 프롬프트에 넣을 텍스트로 만든다.
+
+    chat_history가 비어 있는 꿈(수동 작성 등)은 raw_content로 폴백한다.
+    """
+    lines: list[str] = []
+    for m in chat_history or []:
+        if not isinstance(m, dict):
+            continue
+        content = str(m.get("content") or "").strip()
+        if not content:
+            continue
+        speaker = "사용자" if m.get("role") == "user" else "Luna"
+        lines.append(f"{speaker}: {content}")
+
+    if not lines:
+        return (raw_content or "").strip()[:SUMMARY_INPUT_MAX_CHARS]
+
+    text = "\n".join(lines)
+    if len(text) > SUMMARY_INPUT_MAX_CHARS:
+        # 앞을 자른다 — 대화 뒷부분이 더 구체적이다.
+        text = text[-SUMMARY_INPUT_MAX_CHARS:]
+    return text
+
+
+def generate_summary(chat_history: list[dict[str, Any]] | None, raw_content: str) -> str:
+    """꿈 대화를 줄거리 한 편으로 정리한다.
+
+    실패 시 예외를 올리지 않고 빈 문자열을 돌려준다 — 줄거리는 부가 기능이라
+    이것 때문에 요청 전체가 500이 되면 안 된다. 호출부가 빈 값을 판단한다.
+    """
+    source = _format_chat_history(chat_history, raw_content)
+    if not source:
+        return ""
+
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = _client().models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_text(
+                                text=SUMMARY_USER_TEMPLATE.format(chat_history=source)
+                            )
+                        ],
+                    )
+                ],
+                config=types.GenerateContentConfig(
+                    system_instruction=SUMMARY_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                ),
+            )
+            _log_usage("summary", getattr(response, "usage_metadata", None), attempt=attempt + 1)
+            text = (getattr(response, "text", None) or "").strip()
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                # JSON이 깨져도 본문이 있으면 그대로 줄거리로 쓴다.
+                logger.warning("summary JSON parse failed — 원문을 그대로 사용")
+                return text
+            summary = str(data.get("summary") or "").strip() if isinstance(data, dict) else ""
+            if summary:
+                logger.info("summary generated chars=%s", len(summary))
+            else:
+                logger.warning("summary empty in parsed JSON")
+            return summary
+        except genai_errors.ClientError as exc:
+            logger.warning("summary gen ClientError: %s", exc)
+            return ""
+        except genai_errors.ServerError as exc:
+            last_exc = exc
+            if attempt < MAX_RETRIES - 1 and "UNAVAILABLE" in str(exc):
+                time.sleep(BASE_BACKOFF_S * (2**attempt))
+                continue
+            logger.warning("summary gen ServerError, 포기: %s", exc)
+            return ""
+    if last_exc is not None:
+        logger.warning("summary gen exhausted retries (%s)", last_exc)
+    return ""
+
+
 def generate_interpretation(dream_content: str) -> dict:
     last_exc: Exception | None = None
     for attempt in range(MAX_RETRIES):
