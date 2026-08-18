@@ -26,3 +26,6 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+
+# Higgsfield 광고 산출물 (로컬 보관, 29MB 바이너리)
+app-store/ad/
