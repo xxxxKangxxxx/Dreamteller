@@ -22,6 +22,7 @@
 | API 설계 | `docs/API.md` | 백엔드 REST API 전체 명세 |
 | AI 프롬프트 | `docs/PROMPT_GUIDE.md` | AI 기능별 프롬프트 설계 |
 | 디자인 시스템 | `docs/DESIGN_SYSTEM.md` | 컬러, 타이포, 컴포넌트 규칙 |
+| 영어 지원 계획 | `docs/I18N_PLAN.md` | i18n 실행 계획 (미착수). **영어/다국어 작업 시 여기부터 읽을 것** |
 
 ## 개발 시 반드시 지켜야 할 규칙
 1. 컬러는 반드시 `DESIGN_SYSTEM.md`의 토큰 변수명을 사용할 것 (`colors.primary` 등)
