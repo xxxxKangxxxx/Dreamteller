@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,11 +9,23 @@ from app.services.gemini_service import generate_summary, generate_title
 from app.services.supabase_client import get_supabase
 from app.utils.envelope import success
 from app.utils.interpretation import serialize_interpretation
+from app.utils.model_json import looks_like_raw_json
 from app.utils.usage import ensure_dream_quota
 
+logger = logging.getLogger("dreams")
 router = APIRouter()
 
 UserId = Annotated[str, Depends(get_current_user_id)]
+
+
+def _usable_summary(raw: Any) -> str:
+    """저장된 줄거리 중 사용자에게 보여줘도 되는 것만 돌려준다.
+
+    2026-08-29 이전 버전은 Gemini가 끝맺지 못한 JSON 원문을 그대로 저장했다.
+    그런 값은 없는 것으로 취급해서, 상세를 열면 자동으로 다시 생성되게 한다.
+    """
+    text = (raw or "").strip() if isinstance(raw, str) else ""
+    return "" if looks_like_raw_json(text) else text
 
 
 def _to_summary(row: dict[str, Any], has_interpretation: bool = False) -> dict[str, Any]:
@@ -119,7 +132,8 @@ def get_dream(dream_id: str, user_id: UserId) -> dict[str, Any]:
         {
             **_to_summary(row, has_interpretation=interp is not None),
             # 줄거리는 상세에서만 내려준다 — 목록(E1)은 컬럼을 일부러 줄여둔 곳이다.
-            "summary": row.get("summary"),
+            # 깨진 값은 null로 내려 앱의 자동 생성 경로를 다시 태운다.
+            "summary": _usable_summary(row.get("summary")) or None,
             "chatHistory": row.get("chat_history") or [],
             "interpretation": interp,
             "characters": [],
@@ -151,12 +165,16 @@ def create_summary(dream_id: str, user_id: UserId) -> dict[str, Any]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="DREAM_NOT_FOUND")
     row = res.data[0]
 
-    existing = (row.get("summary") or "").strip()
+    existing = _usable_summary(row.get("summary"))
     if existing:
         return success({"dreamId": dream_id, "summary": existing, "cached": True})
 
     summary = generate_summary(row.get("chat_history"), row.get("raw_content") or "")
-    if not summary:
+    # 저장 직전 마지막 방어선. 여기를 통과하지 못한 값은 DB에 남기지 않는다 —
+    # 한 번 저장되면 멱등 캐시 때문에 영구히 그 값이 노출되기 때문이다.
+    if not summary or looks_like_raw_json(summary):
+        if summary:
+            logger.warning("summary rejected before save dream_id=%s", dream_id)
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, detail="SUMMARY_GENERATION_FAILED"
         )

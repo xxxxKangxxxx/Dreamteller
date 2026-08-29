@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from functools import lru_cache
@@ -10,6 +9,7 @@ from google.genai import types
 
 from app.config import settings
 from app.schemas.dream import ChatMessage
+from app.utils.model_json import looks_like_raw_json, parse_model_json
 
 logger = logging.getLogger("gemini")
 
@@ -153,7 +153,7 @@ def _normalize_slots(raw: Any) -> dict[str, str | None]:
     return slots
 
 
-def _call_chat(messages: list[ChatMessage], turn: int, is_final: bool) -> dict[str, Any]:
+def _call_chat(messages: list[ChatMessage], turn: int, is_final: bool) -> dict[str, Any] | None:
     history: list[types.Content] = []
     for m in messages[:-1]:
         role = "user" if m.role == "user" else "model"
@@ -199,12 +199,10 @@ def _call_chat(messages: list[ChatMessage], turn: int, is_final: bool) -> dict[s
             block_reason,
         )
         return {}
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        logger.warning("chat JSON parse failed — reply만 원문으로 살린다")
-        return {"reply": text}
-    return data if isinstance(data, dict) else {}
+
+    # 파싱 실패는 None으로 올린다 — 원문(JSON 껍데기)을 reply로 살려 보내면
+    # 그대로 사용자 화면에 찍힌다. 재시도 여부는 호출부가 정한다.
+    return parse_model_json(text, "chat")
 
 
 
@@ -401,6 +399,14 @@ JSON 형식으로 응답:
   "summary": "꿈 줄거리 텍스트"
 }}"""
 
+# 응답을 스키마로 묶어 디코딩 자체를 제약한다. 자유 형식 JSON보다 잘림/형식 붕괴가
+# 확연히 덜 나서, 2026-08-29 사고(닫는 따옴표 누락)의 1차 방어선 역할을 한다.
+SUMMARY_RESPONSE_SCHEMA = types.Schema(
+    type=types.Type.OBJECT,
+    properties={"summary": types.Schema(type=types.Type.STRING)},
+    required=["summary"],
+)
+
 # 오래된 꿈은 대화가 길 수 있어 입력 토큰이 튄다. 줄거리는 200자 안팎 결과물이라
 # 대화 뒷부분만 있어도 충분하므로 앞을 잘라 상한을 둔다.
 SUMMARY_INPUT_MAX_CHARS = 6000
@@ -459,6 +465,7 @@ def generate_summary(chat_history: list[dict[str, Any]] | None, raw_content: str
                 config=types.GenerateContentConfig(
                     system_instruction=SUMMARY_SYSTEM_PROMPT,
                     response_mime_type="application/json",
+                    response_schema=SUMMARY_RESPONSE_SCHEMA,
                     # thinking 비활성화. 2026-08-16 실측(꿈 2건, 짧은 것/긴 것):
                     #   기본값  thoughts=1109 / output=79  → ₩4.35, 5.69초
                     #   budget 512               thoughts=450  → ₩2.10, 2.75초
@@ -471,19 +478,38 @@ def generate_summary(chat_history: list[dict[str, Any]] | None, raw_content: str
                 ),
             )
             _log_usage("summary", getattr(response, "usage_metadata", None), attempt=attempt + 1)
+            candidates = getattr(response, "candidates", None) or []
+            finish_reason = (
+                str(getattr(candidates[0], "finish_reason", None)) if candidates else None
+            )
             text = (getattr(response, "text", None) or "").strip()
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError:
-                # JSON이 깨져도 본문이 있으면 그대로 줄거리로 쓴다.
-                logger.warning("summary JSON parse failed — 원문을 그대로 사용")
-                return text
-            summary = str(data.get("summary") or "").strip() if isinstance(data, dict) else ""
-            if summary:
-                logger.info("summary generated chars=%s", len(summary))
-            else:
-                logger.warning("summary empty in parsed JSON")
-            return summary
+            data = parse_model_json(text, "summary")
+            summary = str(data.get("summary") or "").strip() if data else ""
+
+            if summary and not looks_like_raw_json(summary):
+                logger.info(
+                    "summary generated chars=%s finish=%s attempt=%s",
+                    len(summary),
+                    finish_reason,
+                    attempt + 1,
+                )
+                return summary
+
+            # 깨졌거나 비었다. 원문을 그대로 줄거리로 쓰는 폴백은 두지 않는다 —
+            # 그게 JSON 껍데기가 사용자 화면과 DB에 남은 원인이었다(2026-08-29).
+            logger.warning(
+                "summary invalid parsed=%s chars=%s finish=%s attempt=%s/%s",
+                data is not None,
+                len(text),
+                finish_reason,
+                attempt + 1,
+                MAX_RETRIES,
+            )
+            # 백오프 없이 바로 다시 부른다 — 서버 과부하가 아니라 형식만 깨진
+            # 응답이고, 줄거리는 사용자가 화면에서 기다리는 동기 호출이다.
+            if attempt < MAX_RETRIES - 1:
+                continue
+            return ""
         except genai_errors.ClientError as exc:
             logger.warning("summary gen ClientError: %s", exc)
             return ""
@@ -521,16 +547,13 @@ def generate_interpretation(dream_content: str) -> dict:
                 ),
             )
             _log_usage("interpret", getattr(response, "usage_metadata", None), attempt=attempt + 1)
-            text = response.text or "{}"
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError:
-                logger.warning("interpret JSON parse failed, falling back to plain text")
-                data = {
-                    "symbolAnalysis": text,
-                    "psychologicalMeaning": "",
-                    "unconsciousMessage": "",
-                }
+            data = parse_model_json(response.text or "", "interpret")
+            if data is None:
+                # 원문을 symbolAnalysis에 밀어 넣으면 JSON 껍데기가 해몽 카드에 뜬다.
+                logger.warning("interpret JSON invalid attempt=%s/%s", attempt + 1, MAX_RETRIES)
+                if attempt < MAX_RETRIES - 1:
+                    continue
+                raise RuntimeError("INTERPRETATION_JSON_INVALID")
             return _normalize_interpretation_payload(data)
         except genai_errors.ServerError as exc:
             last_exc = exc
@@ -562,6 +585,12 @@ def chat_turn(messages: list[ChatMessage], turn: int) -> dict[str, Any]:
     for attempt in range(MAX_RETRIES):
         try:
             data = _call_chat(messages, turn, is_final)
+            if data is None:
+                # JSON이 깨진 응답. 같은 입력으로 바로 다시 부르면 대개 정상으로 온다.
+                if attempt < MAX_RETRIES - 1:
+                    continue
+                logger.warning("chat JSON 재시도 소진 — 슬롯 폴백으로 대화를 잇는다")
+                data = {}
             break
         except genai_errors.ClientError as exc:
             code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
