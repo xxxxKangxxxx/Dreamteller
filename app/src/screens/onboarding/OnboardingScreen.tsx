@@ -3,7 +3,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -57,8 +56,6 @@ const SLIDES: Slide[] = [
     points: ['감정 분포 인사이트', '반복되는 테마 발견', '감성 꿈 카드 저장·공유'],
   },
 ];
-
-const { width } = Dimensions.get('window');
 
 interface StarSpec {
   top: number;
@@ -131,15 +128,24 @@ export function OnboardingScreen() {
   const listRef = useRef<FlatList<Slide>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // 슬라이드 폭은 창이 아니라 **리스트가 실제로 차지한 폭**이어야 한다.
+  // 웹에서는 AppShell이 본문을 480px로 좁히기 때문에, 창 폭(Dimensions/useWindowDimensions)을
+  // 쓰면 슬라이드가 컨테이너보다 넓어져 페이징 위치가 통째로 어긋난다.
+  const [slideWidth, setSlideWidth] = useState(0);
+
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (slideWidth <= 0) return;
     const x = e.nativeEvent.contentOffset.x;
-    setCurrentIndex(Math.round(x / width));
+    setCurrentIndex(Math.round(x / slideWidth));
   };
 
   const goNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      listRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
-    }
+    const next = currentIndex + 1;
+    if (next > SLIDES.length - 1) return;
+    // 인덱스를 먼저 올린다. 웹에서는 프로그램 스크롤에 onMomentumScrollEnd가
+    // 항상 오지는 않아서, 여기에만 기대면 점 표시와 버튼이 멈춘 것처럼 보인다.
+    setCurrentIndex(next);
+    listRef.current?.scrollToIndex({ index: next, animated: true });
   };
 
   const isLast = currentIndex === SLIDES.length - 1;
@@ -173,6 +179,10 @@ export function OnboardingScreen() {
           )}
         </View>
 
+        <View
+          style={styles.listWrap}
+          onLayout={(e) => setSlideWidth(e.nativeEvent.layout.width)}
+        >
         <FlatList
           ref={listRef}
           data={SLIDES}
@@ -181,8 +191,15 @@ export function OnboardingScreen() {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScrollEnd}
+          extraData={slideWidth}
+          // 폭을 알려줘야 scrollToIndex가 측정을 기다리지 않고 정확히 이동한다
+          getItemLayout={(_, index) => ({
+            length: slideWidth,
+            offset: slideWidth * index,
+            index,
+          })}
           renderItem={({ item }) => (
-            <View style={[styles.slide, { width }]}>
+            <View style={[styles.slide, { width: slideWidth }]}>
               <Text style={styles.kicker}>{item.kicker}</Text>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.body}>{item.body}</Text>
@@ -197,6 +214,7 @@ export function OnboardingScreen() {
             </View>
           )}
         />
+        </View>
 
         <View style={styles.dots}>
           {SLIDES.map((_, idx) => (
@@ -248,6 +266,9 @@ const styles = StyleSheet.create({
   skip: {
     ...textStyles.bodyMd,
     color: colors.textSecondary,
+  },
+  listWrap: {
+    flex: 1,
   },
   slide: {
     flex: 1,

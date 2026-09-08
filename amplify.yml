@@ -6,6 +6,30 @@ frontend:
         - cd app && npm ci
     build:
       commands:
+        # EXPO_PUBLIC_* 는 빌드 시점에 번들로 인라인된다. 빠지면 빌드는 초록불인데
+        # 코드의 기본값(예: http://localhost:8000/api)이 그대로 배포돼 앱이 조용히 죽는다.
+        # 실제로 한 번 겪었으므로 여기서 먼저 끊는다.
+        - |
+          missing=""
+          for v in EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY; do
+            eval "val=\$$v"
+            [ -n "$val" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "❌ Amplify 환경변수 누락:$missing"
+            echo "   콘솔 → App settings → Environment variables 에서 추가할 것"
+            exit 1
+          fi
+          # 비어 있는 것만 막으면 부족하다. 실제로 겪은 사고는 "비었다"가 아니라
+          # 로컬 개발값(http://localhost:8000/api)이 그대로 들어가 배포된 경우였다.
+          case "$EXPO_PUBLIC_API_BASE_URL" in
+            *localhost*|*127.0.0.1*|*0.0.0.0*)
+              echo "❌ EXPO_PUBLIC_API_BASE_URL이 로컬 주소입니다: $EXPO_PUBLIC_API_BASE_URL"
+              echo "   배포 빌드에는 https://api.dreamteller.io.kr/api 를 넣어야 합니다"
+              exit 1
+              ;;
+          esac
+          echo "✅ 환경변수 확인 (API=$EXPO_PUBLIC_API_BASE_URL)"
         # Expo Web 앱 빌드 → app/dist
         - npx expo export -p web
         - cd ..
