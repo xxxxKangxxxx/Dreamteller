@@ -1,6 +1,6 @@
-import { Alert } from 'react-native';
 
 import { useRecordStore } from '@/store/recordStore';
+import { showAlert } from '@/utils/alert';
 
 import { sessionStorage } from './sessionStorage';
 
@@ -26,7 +26,7 @@ export async function maybePromptResume(onResume: () => void): Promise<void> {
     return;
   }
 
-  Alert.alert(
+  showAlert(
     '꿈 기록을 이어할까요?',
     '진행 중이던 꿈 기록이 있어요. 이어서 작성할까요?',
     [

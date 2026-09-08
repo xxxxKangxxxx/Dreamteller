@@ -29,3 +29,6 @@ yarn-error.*
 
 # Higgsfield 광고 산출물 (로컬 보관, 29MB 바이너리)
 app-store/ad/
+
+# Amplify 배포용 조립 산출물 (amplify.yml이 생성)
+dist-site/

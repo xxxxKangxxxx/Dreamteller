@@ -1,12 +1,28 @@
 version: 1
 frontend:
   phases:
+    preBuild:
+      commands:
+        - cd app && npm ci
     build:
-      commands: []
+      commands:
+        # Expo Web 앱 빌드 → app/dist
+        - npx expo export -p web
+        - cd ..
+        # 배포 트리 조립:
+        #   /             웹 앱 (Expo Web SPA)
+        #   /about        랜딩 페이지
+        #   /terms.html   약관   ← 출시된 iOS 앱에 하드코딩된 URL. 절대 옮기지 말 것
+        #   /privacy.html 방침   ← App Store Connect에 등록된 URL. 절대 옮기지 말 것
+        - rm -rf dist-site && mkdir -p dist-site/about
+        - cp -R app/dist/. dist-site/
+        - cp web/index.html dist-site/about/index.html
+        - cp web/terms.html web/privacy.html web/styles.css dist-site/
+        - cp -R web/assets/. dist-site/assets/
   artifacts:
-    # 정적 사이트 — 빌드 없이 web/ 디렉터리를 그대로 배포
-    baseDirectory: web
+    baseDirectory: dist-site
     files:
       - '**/*'
   cache:
-    paths: []
+    paths:
+      - app/node_modules/**/*

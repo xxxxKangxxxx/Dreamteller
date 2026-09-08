@@ -9,6 +9,12 @@ import { Platform } from 'react-native';
 const ANDROID_CHANNEL_ID = 'morning-dream';
 export const NOTIFICATION_SCREEN_RECORD = 'RecordChat';
 
+/**
+ * 이 플랫폼에서 로컬 반복 알림을 예약할 수 있는지.
+ * 웹(`notificationService.web.ts`)에서는 false — 설정 화면이 이 값으로 알림 UI를 숨긴다.
+ */
+export const isReminderSupported = true;
+
 const REMINDER_TITLE = '간밤의 꿈, 기억나세요?';
 const REMINDER_BODY = '사라지기 전에 지금 기록해보세요';
 
@@ -67,4 +73,28 @@ export async function scheduleDailyReminder(hour: number, minute: number) {
 /** 예약된 알림 모두 취소 (토글 OFF 시) */
 export async function cancelDailyReminder() {
   await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
+/**
+ * 알림 탭 → 꿈 기록 진입 의도를 구독한다. 해제 함수를 반환.
+ *
+ * 앱 실행 중 탭과 알림으로 인한 콜드 스타트를 함께 처리한다.
+ * App.tsx가 `expo-notifications`를 직접 부르면 웹 번들에 네이티브 모듈이 끌려오므로
+ * 이 서비스 뒤로 감춘다.
+ */
+export function addRecordIntentListener(onRecordIntent: () => void): () => void {
+  const isRecordIntent = (data: unknown) =>
+    (data as { screen?: string } | undefined)?.screen === NOTIFICATION_SCREEN_RECORD;
+
+  const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+    if (isRecordIntent(response.notification.request.content.data)) onRecordIntent();
+  });
+
+  void Notifications.getLastNotificationResponseAsync().then((response) => {
+    if (response && isRecordIntent(response.notification.request.content.data)) {
+      onRecordIntent();
+    }
+  });
+
+  return () => responseSub.remove();
 }

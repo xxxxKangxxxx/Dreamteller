@@ -61,5 +61,6 @@ const styles = StyleSheet.create({
   initials: {
     color: colors.primaryLight,
     fontFamily: typography.fonts.semibold,
+    fontWeight: typography.weights.semibold,
   },
 });

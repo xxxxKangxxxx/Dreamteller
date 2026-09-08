@@ -1,22 +1,26 @@
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/spacing';
 import { textStyles } from '@/constants/typography';
 import type { RootStackParamList } from '@/navigation/types';
 import { supabaseAuth } from '@/services/authService';
-import { requestNotificationPermission } from '@/services/notificationService';
+import {
+  isReminderSupported,
+  requestNotificationPermission,
+} from '@/services/notificationService';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useUIStore } from '@/store/uiStore';
+import { showAlert } from '@/utils/alert';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -58,7 +62,7 @@ export function SettingsScreen() {
     if (value) {
       const granted = await requestNotificationPermission();
       if (!granted) {
-        Alert.alert(
+        showAlert(
           '알림 권한이 필요해요',
           '기기 설정 > DreamTeller에서 알림을 허용해 주세요.',
           [
@@ -75,9 +79,7 @@ export function SettingsScreen() {
     }
   };
 
-  const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowTimePicker(false);
-    if (event.type === 'dismissed' || !date) return;
+  const handleTimeChange = (date: Date) => {
     void setReminder({ enabled: true, hour: date.getHours(), minute: date.getMinutes() });
   };
 
@@ -85,12 +87,12 @@ export function SettingsScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('링크를 열 수 없어요', '잠시 후 다시 시도해 주세요.');
+      showAlert('링크를 열 수 없어요', '잠시 후 다시 시도해 주세요.');
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('로그아웃', '정말 로그아웃 할까요?', [
+    showAlert('로그아웃', '정말 로그아웃 할까요?', [
       { text: '취소', style: 'cancel' },
       {
         text: '로그아웃',
@@ -126,7 +128,7 @@ export function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       '계정 삭제',
       '계정과 모든 꿈 기록이 영구적으로 삭제돼요. 이 작업은 되돌릴 수 없어요. 정말 삭제할까요?',
       [
@@ -136,7 +138,7 @@ export function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             // 실수 방지를 위한 2차 확인
-            Alert.alert('정말 삭제할까요?', '삭제하면 복구할 수 없어요.', [
+            showAlert('정말 삭제할까요?', '삭제하면 복구할 수 없어요.', [
               { text: '취소', style: 'cancel' },
               {
                 text: '영구 삭제',
@@ -211,49 +213,54 @@ export function SettingsScreen() {
           </>
         ) : null}
 
-        <Text style={styles.sectionLabel}>알림</Text>
-        <View style={styles.linkCard}>
-          <View style={styles.linkRow}>
-            <View style={styles.reminderTexts}>
-              <Text style={styles.linkLabel}>아침 꿈 알림</Text>
-              <Text style={styles.reminderHint}>
-                매일 정해진 시간에 꿈 기록을 알려드려요
-              </Text>
-            </View>
-            <Switch
-              value={reminderEnabled}
-              onValueChange={(v) => void handleToggleReminder(v)}
-              trackColor={{ true: colors.primary, false: colors.border }}
-              thumbColor={colors.textPrimary}
-            />
-          </View>
-          {reminderEnabled ? (
-            <>
-              <View style={styles.linkDivider} />
-              <Pressable
-                style={styles.linkRow}
-                onPress={() => setShowTimePicker((p) => !p)}
-                accessibilityRole="button"
-                accessibilityLabel="알림 시간 변경"
-              >
-                <Text style={styles.linkLabel}>알림 시간</Text>
-                <Text style={styles.reminderTime}>
-                  {formatTime(reminderHour, reminderMinute)}
+        {/* 아침 꿈 알림은 OS 로컬 알림 기능이라 웹에는 대응물이 없다.
+            (`services/notificationService.web.ts` 참조) 켤 수 없는 스위치를
+            보여주느니 섹션째 감춘다. */}
+        {isReminderSupported ? (
+          <>
+          <Text style={styles.sectionLabel}>알림</Text>
+          <View style={styles.linkCard}>
+            <View style={styles.linkRow}>
+              <View style={styles.reminderTexts}>
+                <Text style={styles.linkLabel}>아침 꿈 알림</Text>
+                <Text style={styles.reminderHint}>
+                  매일 정해진 시간에 꿈 기록을 알려드려요
                 </Text>
-              </Pressable>
-              {showTimePicker ? (
-                <DateTimePicker
-                  value={reminderDate}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleTimeChange}
-                  textColor={colors.textPrimary}
-                  style={styles.timePicker}
-                />
-              ) : null}
-            </>
-          ) : null}
-        </View>
+              </View>
+              <Switch
+                value={reminderEnabled}
+                onValueChange={(v) => void handleToggleReminder(v)}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor={colors.textPrimary}
+              />
+            </View>
+            {reminderEnabled ? (
+              <>
+                <View style={styles.linkDivider} />
+                <Pressable
+                  style={styles.linkRow}
+                  onPress={() => setShowTimePicker((p) => !p)}
+                  accessibilityRole="button"
+                  accessibilityLabel="알림 시간 변경"
+                >
+                  <Text style={styles.linkLabel}>알림 시간</Text>
+                  <Text style={styles.reminderTime}>
+                    {formatTime(reminderHour, reminderMinute)}
+                  </Text>
+                </Pressable>
+                {showTimePicker ? (
+                  <TimePicker
+                    value={reminderDate}
+                    onChange={handleTimeChange}
+                    onRequestClose={() => setShowTimePicker(false)}
+                    style={styles.timePicker}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionLabel}>약관 및 정책</Text>
         <View style={styles.linkCard}>

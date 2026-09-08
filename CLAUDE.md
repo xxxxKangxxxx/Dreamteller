@@ -7,6 +7,7 @@
 
 ## 확정된 기술 스택
 - **앱**: React Native (Expo) — iOS 우선, Android 추후
+- **웹**: 같은 앱 코드를 react-native-web으로 빌드 (모바일 브라우저 우선). 별도 웹 코드베이스 없음
 - **백엔드**: FastAPI (Python)
 - **DB / 인증 / 스토리지**: Supabase 풀 활용 (PostgreSQL + Auth + Storage)
 - **DB 접근**: Supabase Python Client SDK (Prisma 사용 안 함)
@@ -30,6 +31,10 @@
 3. AI 프롬프트는 `docs/PROMPT_GUIDE.md`를 기준으로 작성하고 하드코딩 금지
 4. 모든 화면 컴포넌트는 `src/screens/` 에, 공통 컴포넌트는 `src/components/` 에 위치
 5. TypeScript strict mode 사용, `any` 타입 사용 금지
+5-1. **네이티브 전용 모듈을 화면/컴포넌트에서 직접 import 금지** — 웹 번들이 깨진다.
+     공용 인터페이스를 만들고 `.web.ts(x)`로 분기할 것 (기존 분기 목록: `docs/ARCHITECTURE.md` "웹 지원")
+5-2. 확인 대화상자는 `Alert.alert`가 아니라 `@/utils/alert`의 `showAlert`를 쓸 것
+     (react-native-web은 `Alert`를 export하지 않는다)
 6. 환경변수는 `.env` 파일 사용, 키값 하드코딩 절대 금지
 7. Gemini API는 반드시 `gemini-2.5-flash` 모델 사용 (`gemini-2.0-flash`는 deprecated)
 

@@ -1,10 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
@@ -163,11 +162,8 @@ export function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {Platform.OS === 'ios' && appleAvailable ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                cornerRadius={radius.md}
+            {appleAvailable ? (
+              <AppleSignInButton
                 style={styles.appleButton}
                 onPress={() => {
                   void handleAppleLogin();

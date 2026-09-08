@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupabaseClient, type User as SupabaseUser } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
-import type { User } from '@/types/user';
+export { mapSupabaseUser } from '@/services/supabase.shared';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,16 +34,3 @@ AppState.addEventListener('change', (state) => {
     void supabase.auth.stopAutoRefresh();
   }
 });
-
-export function mapSupabaseUser(user: SupabaseUser): User {
-  const isAnonymous = user.is_anonymous === true;
-  const metadataName = (user.user_metadata?.name as string | undefined) ?? undefined;
-  const fallbackName = isAnonymous ? '게스트' : user.email?.split('@')[0] ?? '사용자';
-  return {
-    id: user.id,
-    email: user.email ?? '',
-    name: metadataName ?? fallbackName,
-    plan: 'FREE',
-    isAnonymous,
-  };
-}

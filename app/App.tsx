@@ -5,21 +5,23 @@ import {
   type Theme,
 } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFonts } from 'expo-font';
-import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppShell } from '@/components/layout/AppShell';
+import { AlertHost } from '@/components/ui/AlertHost';
 import { ToastContainer } from '@/components/ui/Toast';
 import { colors } from '@/constants/colors';
+import { useAppFonts } from '@/hooks/useAppFonts';
+import { linking } from '@/navigation/linking';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import type { RootStackParamList } from '@/navigation/types';
 import { setUnauthorizedHandler } from '@/services/api';
 import {
+  addRecordIntentListener,
   configureNotificationHandler,
-  NOTIFICATION_SCREEN_RECORD,
 } from '@/services/notificationService';
 import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -69,12 +71,7 @@ export default function App() {
   const hydrate = useAuthStore((s) => s.hydrate);
   const hydrateSettings = useSettingsStore((s) => s.hydrate);
 
-  const [fontsLoaded] = useFonts({
-    'Pretendard-Regular': require('./assets/fonts/Pretendard-Regular.otf'),
-    'Pretendard-Medium': require('./assets/fonts/Pretendard-Medium.otf'),
-    'Pretendard-SemiBold': require('./assets/fonts/Pretendard-SemiBold.otf'),
-    'Pretendard-Bold': require('./assets/fonts/Pretendard-Bold.otf'),
-  });
+  const fontsLoaded = useAppFonts();
 
   useEffect(() => {
     void hydrate();
@@ -88,20 +85,8 @@ export default function App() {
   }, [hydrate, hydrateSettings]);
 
   useEffect(() => {
-    const isRecordIntent = (data: unknown) =>
-      (data as { screen?: string } | undefined)?.screen === NOTIFICATION_SCREEN_RECORD;
-
-    // 앱 실행 중 알림 탭
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      if (isRecordIntent(response.notification.request.content.data)) tryNavigateToRecord();
-    });
-
-    // 알림 탭으로 콜드 스타트된 경우
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response && isRecordIntent(response.notification.request.content.data)) {
-        tryNavigateToRecord();
-      }
-    });
+    // 알림 탭(실행 중 + 콜드 스타트) 구독. 웹에서는 no-op이다.
+    const unsubNotifications = addRecordIntentListener(tryNavigateToRecord);
 
     // 인증 완료 후 보류된 이동 실행
     const unsubAuth = useAuthStore.subscribe((state) => {
@@ -111,7 +96,7 @@ export default function App() {
     });
 
     return () => {
-      responseSub.remove();
+      unsubNotifications();
       unsubAuth();
     };
   }, []);
@@ -129,17 +114,21 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <NavigationContainer
-          ref={navigationRef}
-          theme={navigationTheme}
-          onReady={() => {
-            if (pendingRecordNav) tryNavigateToRecord();
-          }}
-        >
-          <StatusBar style="light" />
-          <RootNavigator />
-          <ToastContainer topOffset={48} />
-        </NavigationContainer>
+        <AppShell>
+          <NavigationContainer
+            ref={navigationRef}
+            theme={navigationTheme}
+            linking={linking}
+            onReady={() => {
+              if (pendingRecordNav) tryNavigateToRecord();
+            }}
+          >
+            <StatusBar style="light" />
+            <RootNavigator />
+            <ToastContainer topOffset={48} />
+            <AlertHost />
+          </NavigationContainer>
+        </AppShell>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

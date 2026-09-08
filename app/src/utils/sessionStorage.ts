@@ -1,15 +1,14 @@
-import * as SecureStore from 'expo-secure-store';
-
 import type { RecordSession } from '@/store/recordStore';
+import { secureStorage } from '@/utils/secureStorage';
 
 const KEY = 'dt.recordSession';
 
 export const sessionStorage = {
   async save(session: RecordSession) {
-    await SecureStore.setItemAsync(KEY, JSON.stringify(session));
+    await secureStorage.setItem(KEY, JSON.stringify(session));
   },
   async load(): Promise<RecordSession | null> {
-    const raw = await SecureStore.getItemAsync(KEY);
+    const raw = await secureStorage.getItem(KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw) as RecordSession;
@@ -18,6 +17,6 @@ export const sessionStorage = {
     }
   },
   async clear() {
-    await SecureStore.deleteItemAsync(KEY);
+    await secureStorage.removeItem(KEY);
   },
 };

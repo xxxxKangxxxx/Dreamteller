@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover: 홈 화면에 추가해 전체화면으로 뜰 때 노치/홈 인디케이터
+         영역까지 그리고, safe-area-inset을 쓸 수 있게 한다 -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no"
+    />
+    <title>DreamTeller</title>
+    <meta
+      name="description"
+      content="대화형 AI가 꿈 기록을 도와주고, 해몽과 아카이브를 제공하는 감성 꿈 일기"
+    />
+    <meta name="theme-color" content="#0D0D1A" />
+
+    <!-- PWA: 홈 화면에 추가 -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <!-- iOS Safari는 manifest의 display/theme_color를 읽지 않아 별도 메타가 필요하다 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DreamTeller" />
+
+    <!-- react-native-web 권장 리셋 -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+      /* ScrollView가 스크롤을 담당하므로 문서 스크롤은 막는다 */
+      body {
+        overflow: hidden;
+        margin: 0;
+        background-color: #0d0d1a;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>이 앱을 사용하려면 자바스크립트를 켜주세요.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

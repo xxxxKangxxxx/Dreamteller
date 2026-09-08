@@ -1,10 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
+import { KeyboardAvoidingContainer } from '@/components/layout/KeyboardAvoidingContainer';
 import { colors } from '@/constants/colors';
 import { EMOTION_META, EMOTION_ORDER } from '@/constants/emotion';
 import { FALLBACK_MESSAGES } from '@/constants/prompts';
@@ -148,11 +147,7 @@ export function RecordSummaryScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
+      <KeyboardAvoidingContainer style={styles.flex}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -229,7 +224,7 @@ export function RecordSummaryScreen() {
             fullWidth
           />
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingContainer>
     </SafeAreaView>
   );
 }

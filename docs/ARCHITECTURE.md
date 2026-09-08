@@ -5,6 +5,9 @@
 ## 확정 기술 스택
 
 ### 앱 (React Native + Expo) — 실제 설치 버전
+> iOS 네이티브와 **웹(react-native-web)** 을 같은 코드로 빌드한다.
+> 플랫폼이 갈리는 지점은 `.web.ts(x)` 파일로만 분기한다 — 아래 "웹 지원" 참조.
+
 ```
 React Native 0.81.x
 Expo SDK 54                 # babel-preset-expo ~54
@@ -44,7 +47,9 @@ Supabase Storage            # 이미지 파일 저장 (MVP 이후 일러스트�
 ```
 AWS EC2 + systemd           # FastAPI 서버 (api.dreamteller.io.kr)
 AWS SES (Seoul) + Custom SMTP # Supabase 인증 메일 발송 (noreply@dreamteller.io.kr)
-AWS Amplify Hosting (Seoul) # 정적 웹 (랜딩/약관/방침 — dreamteller.io.kr, web/)
+AWS Amplify Hosting (Seoul) # dreamteller.io.kr
+                            #   /            Expo Web 앱 (app/ 코드를 웹으로 빌드)
+                            #   /about       랜딩, /terms.html /privacy.html 법률 (web/)
 AWS Route 53                # DNS (dreamteller.io.kr)
 Supabase                    # DB + Auth (ap-northeast-2)
 ```
@@ -149,6 +154,32 @@ app/
 ├── tsconfig.json
 └── package.json
 ```
+
+### 웹 지원 (react-native-web)
+
+앱 코드를 그대로 웹으로 빌드한다(`npx expo export -p web`). 화면·컴포넌트·스토어·훅은
+**한 벌만 존재**하고, 브라우저에 대응물이 없는 네이티브 기능만 `.web.ts(x)` 파일로 갈린다.
+Metro가 웹 번들에서 `.web.*`를 우선 해석하므로 호출부는 플랫폼을 몰라도 된다.
+
+| 공용 인터페이스 | 웹 구현이 하는 일 |
+|---|---|
+| `utils/secureStorage.ts` | SecureStore → localStorage (토큰은 넣지 않음) |
+| `services/tokenStorage.ts` | 미러를 두지 않고 Supabase 세션에서 직접 읽음 |
+| `services/supabase.ts` | `detectSessionInUrl: true`, AppState 리스너 없음 |
+| `services/authService.ts` | Google은 리다이렉트 플로우, Apple은 비노출 |
+| `services/notificationService.ts` | 전부 no-op + `isReminderSupported: false` |
+| `services/cardCapture.ts` | 사진 앱 저장 → 브라우저 다운로드, 공유는 Web Share API |
+| `utils/alert.ts` | RNW에 없는 `Alert` → 자체 모달(`components/ui/AlertHost`) |
+| `constants/fontFamily.ts` | .otf 4종(6MB) → Pretendard 가변폰트 다이나믹 서브셋 |
+| `components/layout/AppShell.tsx` | 480px 중앙 정렬 + `100dvh` |
+| `components/layout/KeyboardAvoidingContainer.tsx` | `visualViewport`로 키보드 높이 계산 |
+| `components/ui/TimePicker.tsx` | DateTimePicker → `<input type="time">` |
+| `components/auth/AppleSignInButton.tsx` | 렌더하지 않음 |
+
+`navigation/linking.ts`가 화면 ↔ URL을 매핑해 새로고침·뒤로가기를 지탱한다.
+배포 구조와 Amplify 설정은 `web/README.md`.
+
+---
 
 ### 백엔드 (`/server`) — 실제 구조
 ```

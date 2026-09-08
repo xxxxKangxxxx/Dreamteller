@@ -4,33 +4,15 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import * as SecureStore from 'expo-secure-store';
 
 import { config } from '@/constants/config';
 import { supabase } from '@/services/supabase';
+import { tokenStorage } from '@/services/tokenStorage';
 import type { ApiError as ApiErrorShape, ApiResponse } from '@/types/api';
 
-const ACCESS_TOKEN_KEY = 'dt.accessToken';
-const REFRESH_TOKEN_KEY = 'dt.refreshToken';
-
-export const tokenStorage = {
-  async getAccessToken() {
-    return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  },
-  async setAccessToken(token: string) {
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
-  },
-  async getRefreshToken() {
-    return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-  },
-  async setRefreshToken(token: string) {
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
-  },
-  async clear() {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-  },
-};
+// 토큰 보관소는 플랫폼별 구현이 갈려(`tokenStorage.ts` / `tokenStorage.web.ts`)
+// 별도 모듈로 뺐다. 기존 import 경로(`@/services/api`)를 쓰던 곳을 위해 재노출한다.
+export { tokenStorage };
 
 export class ApiError extends Error {
   code: string;

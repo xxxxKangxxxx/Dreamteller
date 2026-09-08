@@ -224,6 +224,7 @@ const styles = StyleSheet.create({
   emailHighlight: {
     color: colors.primaryLight,
     fontFamily: typography.fonts.semibold,
+    fontWeight: typography.weights.semibold,
   },
   verifyingBlock: {
     flex: 1,

@@ -1,15 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   AppState,
   type AppStateStatus,
   FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatBubble } from '@/components/dream/ChatBubble';
 import { ToastContainer } from '@/components/ui/Toast';
+import {
+  KeyboardAvoidingContainer,
+  useKeyboardVisible,
+} from '@/components/layout/KeyboardAvoidingContainer';
 import { colors } from '@/constants/colors';
 import { config } from '@/constants/config';
 import { FALLBACK_MESSAGES } from '@/constants/prompts';
@@ -29,6 +29,7 @@ import { useRecordSession } from '@/hooks/useRecordSession';
 import type { RootStackParamList } from '@/navigation/types';
 import { countFilledSlots, EMPTY_SLOTS, useRecordStore } from '@/store/recordStore';
 import { useUIStore } from '@/store/uiStore';
+import { showAlert } from '@/utils/alert';
 import { type ChatMessage, DREAM_SLOT_KEYS } from '@/types/dream';
 import { sessionStorage } from '@/utils/sessionStorage';
 
@@ -48,19 +49,8 @@ export function RecordChatScreen() {
   const showToast = useUIStore((s) => s.showToast);
 
   const [input, setInput] = useState('');
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardVisible = useKeyboardVisible();
   const listRef = useRef<FlatList<ListItem>>(null);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   useEffect(() => {
     ensureSession();
@@ -88,7 +78,7 @@ export function RecordChatScreen() {
     const elapsed = Date.now() - new Date(session.lastActivityAt).getTime();
     const remaining = Math.max(0, config.sessionIdleTimeoutMs - elapsed);
     const timer = setTimeout(() => {
-      Alert.alert('세션 만료', FALLBACK_MESSAGES.sessionExpired, [
+      showAlert('세션 만료', FALLBACK_MESSAGES.sessionExpired, [
         {
           text: '확인',
           onPress: () => {
@@ -126,7 +116,7 @@ export function RecordChatScreen() {
   }, [items.length]);
 
   const handleClose = useCallback(() => {
-    Alert.alert('기록을 그만둘까요?', '지금까지 입력한 내용은 사라져요', [
+    showAlert('기록을 그만둘까요?', '지금까지 입력한 내용은 사라져요', [
       { text: '계속하기', style: 'cancel' },
       {
         text: '그만두기',
@@ -184,11 +174,7 @@ export function RecordChatScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
+      <KeyboardAvoidingContainer style={styles.flex}>
         <FlatList
           ref={listRef}
           data={items}
@@ -238,7 +224,7 @@ export function RecordChatScreen() {
             />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingContainer>
     </View>
     <ToastContainer topOffset={48} />
     </>

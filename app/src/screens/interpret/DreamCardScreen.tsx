@@ -1,14 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
 import { useCallback, useRef, useState } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,7 +24,14 @@ import { textStyles } from '@/constants/typography';
 import { useDreamDetail } from '@/hooks/queries/useDreamDetail';
 import { useInterpret } from '@/hooks/queries/useInterpret';
 import type { RootStackParamList } from '@/navigation/types';
+import {
+  CAPTURE_RESULT,
+  SAVE_SUCCESS_MESSAGE,
+  saveCardImage,
+  shareCardImage,
+} from '@/services/cardCapture';
 import { useUIStore } from '@/store/uiStore';
+import { showAlert } from '@/utils/alert';
 import { formatDateDot } from '@/utils/date';
 import { splitIntoParagraphs } from '@/utils/text';
 
@@ -68,13 +72,16 @@ export function DreamCardScreen() {
         showToast('카드를 만드는 데 실패했어요', 'error');
         return;
       }
-      const perm = await MediaLibrary.requestPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('사진 접근 권한이 필요해요', '설정에서 사진 접근을 허용해주세요.');
+      const result = await saveCardImage(uri);
+      if (result === 'permission-denied') {
+        showAlert('사진 접근 권한이 필요해요', '설정에서 사진 접근을 허용해주세요.');
         return;
       }
-      await MediaLibrary.saveToLibraryAsync(uri);
-      showToast('사진 앱에 저장됐어요', 'success');
+      if (result === 'failed') {
+        showToast('저장에 실패했어요', 'error');
+        return;
+      }
+      showToast(SAVE_SUCCESS_MESSAGE, 'success');
     } catch {
       showToast('저장에 실패했어요', 'error');
     } finally {
@@ -91,16 +98,15 @@ export function DreamCardScreen() {
         showToast('카드를 만드는 데 실패했어요', 'error');
         return;
       }
-      const available = await Sharing.isAvailableAsync();
-      if (!available) {
+      const result = await shareCardImage(uri);
+      if (result === 'unsupported') {
         showToast('이 기기에서는 공유를 사용할 수 없어요', 'error');
         return;
       }
-      await Sharing.shareAsync(uri, {
-        dialogTitle: '해몽 카드 공유',
-        mimeType: 'image/png',
-        UTI: 'public.png',
-      });
+      if (result === 'failed') {
+        showToast('공유에 실패했어요', 'error');
+        return;
+      }
     } catch {
       showToast('공유에 실패했어요', 'error');
     } finally {
@@ -146,7 +152,7 @@ export function DreamCardScreen() {
           <>
             <ViewShot
               ref={cardRef}
-              options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+              options={{ format: 'png', quality: 1, result: CAPTURE_RESULT }}
               style={styles.captureWrapper}
             >
               <LinearGradient
