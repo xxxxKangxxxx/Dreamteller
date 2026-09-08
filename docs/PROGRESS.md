@@ -1,18 +1,122 @@
 # DreamTeller — 진행 현황 & 다음 작업
 
-> 최종 업데이트: 2026-08-29 (**줄거리에 JSON 원문이 노출된 버그 — 규명 → 수정 → 배포 → 실사용 검증**. 상세 화면에 `{ "summary": "…` 가 그대로 떴다. 원인은 Gemini가 **JSON을 끝맺지 못하고 끊은 응답**(닫는 `"` + `}` 누락)을 폴백이 **원문 그대로 저장**한 것 — 토큰 상한 초과가 아니라(725토큰 / 상한 65k) 확률적 형식 붕괴였고, 멱등 캐시 탓에 **한 번 저장되면 자가 복구 경로가 없었다**. 3층 방어(잘린 JSON 복구 + `response_schema` + 저장 전 검증/읽기 시 자가 복구)로 수정, **원문 노출 폴백을 줄거리·대화·해몽 3곳에서 전부 제거**. 프로덕션 깨진 데이터 1건은 Gemini 재호출 없이 **본문 손실 0으로 복구**. 커밋 `d52b00e` 배포 완료 + 새 꿈 기록으로 실사용 검증 통과. **앱 코드 변경 없음(서버만)**. 다음: **build 11 묶음**이 여전히 최우선)
+> 최종 업데이트: 2026-09-08 (**웹 지원 — Expo Web으로 앱 기능을 브라우저에 올리고 `dreamteller.io.kr` 배포 완료**. Next.js 신규 구축과 비교한 끝에 **Expo Web(react-native-web)** 으로 확정 — 화면 15개·공통 컴포넌트 14개(**5,021줄**)를 한 줄도 고치지 않고 재사용하고, 브라우저에 대응물이 없는 네이티브 기능만 **`.web.ts(x)` 14곳**으로 분기했다. 앞으로의 i18n·AI 이미지·음성 입력을 **앱/웹 두 번 구현하지 않는 것**이 이 선택의 핵심 이득. 번들은 아이콘 폰트 **3.9MB → 428KB**, Pretendard **6MB를 웹에서 회피**해 전송량 **약 0.77MB(gzip)**. 배포 구조는 `/`=웹앱, `/about`=랜딩, **`/terms.html`·`/privacy.html`은 출시된 iOS 앱에 하드코딩돼 있어 원위치 보존**. 커밋 `aa82199` + `c2fbc96` 배포·검증 완료. **서버 변경 없음**. 다음: 미검증 항목(홈 화면 추가·키보드·카드 저장) 실기기 확인)
 >
-> <sub>이전 업데이트: 2026-08-20 (**영어 지원(i18n) 실행 계획 수립**. 코드 변경 **없음** — 조사·검증·설계 결정만. 앱이 한국어 전용임을 전수 확인(**27파일 / 249줄** + 서버 프롬프트 7종). 사용자와 논의해 **설계 결정 10개 확정**(AI까지 전부 영어화 / 한국 전통 해몽 유지 / 기록 언어를 따르는 해몽 / 자동감지+수동선택 / 1.2.0 한 번에 출시 등). [`docs/I18N_PLAN.md`](./I18N_PLAN.md) **1,264줄** 신설 — Phase 1~8, 영어 프롬프트 전문, 문자열 전체 인벤토리, 재조사 명령 포함. **다음: build 11 묶음**(줄거리 문단 간격 + A1 전체 리팩터)이 여전히 최우선, i18n 착수는 그 이후)
+> <sub>이전 업데이트: 2026-08-29 (**줄거리에 JSON 원문이 노출된 버그 — 규명 → 수정 → 배포 → 실사용 검증**. 상세 화면에 `{ "summary": "…` 가 그대로 떴다. 원인은 Gemini가 **JSON을 끝맺지 못하고 끊은 응답**(닫는 `"` + `}` 누락)을 폴백이 **원문 그대로 저장**한 것 — 토큰 상한 초과가 아니라(725토큰 / 상한 65k) 확률적 형식 붕괴였고, 멱등 캐시 탓에 **한 번 저장되면 자가 복구 경로가 없었다**. 3층 방어(잘린 JSON 복구 + `response_schema` + 저장 전 검증/읽기 시 자가 복구)로 수정, **원문 노출 폴백을 줄거리·대화·해몽 3곳에서 전부 제거**. 프로덕션 깨진 데이터 1건은 Gemini 재호출 없이 **본문 손실 0으로 복구**. 커밋 `d52b00e` 배포 완료 + 새 꿈 기록으로 실사용 검증 통과. **앱 코드 변경 없음(서버만)**. 다음: **build 11 묶음**이 여전히 최우선)</sub>
+>
+> <sub>그 이전: 2026-08-20 (**영어 지원(i18n) 실행 계획 수립**. 코드 변경 **없음** — 조사·검증·설계 결정만. 앱이 한국어 전용임을 전수 확인(**27파일 / 249줄** + 서버 프롬프트 7종). 사용자와 논의해 **설계 결정 10개 확정**(AI까지 전부 영어화 / 한국 전통 해몽 유지 / 기록 언어를 따르는 해몽 / 자동감지+수동선택 / 1.2.0 한 번에 출시 등). [`docs/I18N_PLAN.md`](./I18N_PLAN.md) **1,264줄** 신설 — Phase 1~8, 영어 프롬프트 전문, 문자열 전체 인벤토리, 재조사 명령 포함. **다음: build 11 묶음**(줄거리 문단 간격 + A1 전체 리팩터)이 여전히 최우선, i18n 착수는 그 이후)
 >
 > <sub>그 이전: 2026-08-18 (**Higgsfield 연결 + UGC 광고 영상 11초 제작**. 앱 코드·서버 변경 없음. 실제 앱 스크린샷을 오버레이 카드로 쓰는 `ugc-saas-flow`로 제작해 **AI가 가짜 UI를 그리지 않도록** 했다. 한국어는 Seedance 립싱크가 뭉개지므로 **무음 + 자막** 구성으로 우회. 크레딧 제약(110)으로 30초 → **11초**로 축소. 잔액 **10.88**. 산출물은 `app-store/ad/` 로컬 보관, **git에는 미포함**)</sub>
 >
 > <sub>그보다 이전: 2026-08-16 (**대화 구조 전면 개편 + 줄거리 기능 + 버그 6건 → 서버 배포 + 실기기 검증 + 심사 제출**.</sub> 꿈 기록 대화를 턴 카운터에서 **슬롯 채우기**로 전환(프로덕션 실증). S-2 줄거리 API 신설·배포. B9-1·2·3·4·5·6·7 + A1 최소수정·A2로 build 9 앱 코드가 전부 모임. TestFlight 실기기 검증 10항목 전부 통과. 꿈 1건 비용 **₩14.4 → ₩10.77**)
 >
-> 대상 위치: `dreamteller/app/` (Expo) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (Amplify 정적 사이트) + `dreamteller/app-store/` (스토어 제출용 산출물)
+> 대상 위치: `dreamteller/app/` (Expo — **iOS + 웹 공용**) + `dreamteller/server/` (FastAPI) + `dreamteller/web/` (랜딩·약관 정적 페이지) + `dreamteller/app-store/` (스토어 제출용 산출물)
 
 ---
 
-## 오늘 세션 요약 (2026-08-29, 줄거리 JSON 원문 노출 버그 — 규명 → 수정 → 배포 → 검증) 🐛
+## 오늘 세션 요약 (2026-09-08, 웹 지원 — Expo Web 구현 → 배포 → 검증) 🌐
+
+> "앱으로 구현한 것들을 웹으로도 쓰게 하고 싶다"에서 시작. **서버 변경 없음**(CORS가 이미 `allow_origins=["*"]`). 커밋 `aa82199` + `c2fbc96` 배포 완료.
+
+### 1. 방식 결정 — Expo Web vs Next.js
+
+사용자가 Next.js를 선호했으나 실제 수치로 비교한 뒤 Expo Web으로 확정.
+
+| 레이어 | 줄 수 | Expo Web | Next.js |
+|---|---|---|---|
+| screens (15) + components (14) + navigation | **5,195** | 그대로 재사용 | 전량 재작성 |
+| services / hooks / store / types / constants | 1,852 | 대부분 재사용 | 절반은 네이티브 API에 묶여 재작성 |
+| **실질 재사용률** | | **약 90%** | 약 17% |
+
+판단을 뒤집은 조건 3가지:
+
+1. **모바일 브라우저 전용**이 목적 → Next.js의 강점인 데스크톱 UX·반응형이 무효화
+2. **색인시킬 콘텐츠 없음** — 꿈 일기는 전부 로그인 뒤 개인 데이터. 랜딩·약관은 정적 HTML로 남음 → SEO 이점도 무효
+3. **대기 중 기능**(i18n·AI 이미지·음성 입력)을 **두 번 구현하지 않는 것**이 번들 크기보다 비싸다
+
+> 웹을 Apple 수수료 우회 결제 채널로 키우는 시나리오도 검토했으나, 한국은 외부 결제에 **StoreKit External Purchase Entitlement + 26% 수수료**가 붙어 **Small Business Program의 IAP 15%보다 오히려 비싸다**. 앱 내 IAP 우선이 수수료 면에서도 맞다는 결론.
+
+### 2. 플랫폼 어댑터 14곳 (`.web.ts(x)`)
+
+호출부는 플랫폼을 모른다. Metro가 웹 번들에서 `.web.*`를 우선 해석한다.
+
+| 공용 인터페이스 | 웹 구현 |
+|---|---|
+| `utils/secureStorage` | SecureStore → localStorage (**토큰은 넣지 않음**) |
+| `services/tokenStorage` | 미러를 두지 않고 Supabase 세션에서 직접 읽음 — 토큰 복사는 XSS 표면만 늘고 두 저장소가 어긋나면 만료 토큰이 나간다 |
+| `services/supabase` | `detectSessionInUrl: true`, AppState 리스너 제거 |
+| `services/authService` | Google은 페이지 리다이렉트 플로우, Apple은 비노출 |
+| `services/notificationService` | 전부 no-op + `isReminderSupported: false` → 설정 화면이 알림 섹션째 숨김 |
+| `services/cardCapture` | 사진 앱 저장 → 브라우저 다운로드, 공유는 Web Share API |
+| `utils/alert` | **RNW는 `Alert`를 export하지 않는다** → 호출 8곳을 `showAlert`로 교체 + 자체 모달 |
+| `constants/fontFamily` | .otf 4종(6MB) → Pretendard 가변폰트 다이나믹 서브셋 |
+| `components/layout/AppShell` | 480px 중앙 정렬 + `100dvh` |
+| `components/layout/KeyboardAvoidingContainer` | `visualViewport`로 키보드 높이 계산 |
+| `components/ui/TimePicker` | DateTimePicker → `<input type="time">` |
+| `components/auth/AppleSignInButton` | 렌더하지 않음 |
+| `hooks/useAppFonts` | CDN 서브셋, 폰트를 기다리지 않음 |
+| `navigation/linking` | URL 라우팅은 웹 전용 — 네이티브에 넘기면 첫 렌더 전에 `getInitialURL()`을 기다린다 |
+
+### 3. 번들 최적화 — 계획에 없던 발견
+
+| 항목 | 전 | 후 |
+|---|---|---|
+| 아이콘 폰트 | **3.9MB** (19종 전부) | **428KB** (Ionicons만) |
+| Pretendard | 6MB (.otf 4종) | 웹 번들에서 제외, CDN 서브셋 12.8KB |
+| 웹 전송량 | — | **약 0.77MB** (JS 0.56 + 아이콘 0.20, gzip) |
+
+`import { Ionicons } from '@expo/vector-icons'` 배럴 import 탓에 쓰지도 않는 폰트가 전부 나가고 있었다. 직접 경로 import로 교체 — **iOS 번들에서도 같은 3.5MB가 빠졌다**.
+
+### 4. 배포 구조 (`dreamteller.io.kr`)
+
+```
+/              Expo Web 앱
+/about         랜딩 (기존 index.html 이동)
+/terms.html    약관    ← 출시된 iOS 1.1.0에 하드코딩. 이동 금지
+/privacy.html  방침    ← App Store Connect 등록 URL. 이동 금지
+```
+
+정적 3종은 배포 깊이가 달라져 `./` 상대경로 → **루트 절대경로**로 전환. `amplify.yml`이 `expo export` 후 트리를 조립한다.
+
+**Amplify 리라이트 규칙** — `html`을 제외 목록에 넣은 것이 핵심 (`web/README.md`에 표로 보존).
+
+### 5. 오늘 발생한 오류 및 해결 내역 🐛
+
+| # | 증상 | 원인 | 해결 |
+|---|---|---|---|
+| 1 | `npx expo install react-native-web` 실패 (ERESOLVE) | `react-dom@19.2.8`이 `react@19.1.0`과 충돌 | `react-dom@19.1.0`으로 고정 설치 |
+| 2 | (사전 차단) Amplify 기본 SPA 규칙이 `/terms.html`을 앱으로 리라이트 | 기본 제외 목록에 `html`이 없음 | 제외 목록에 `html` 추가. **출시된 앱의 약관 링크와 ASC 방침 URL이 죽을 뻔한 건** |
+| 3 | 리라이트 JSON 파싱 실패 | 콘솔 입력에 `4$$` 오타 + `\.` 이스케이프 누락 + 2번 규칙 target이 `/about/index.html`(랜딩)로 잘못 지정 | target을 `/index.html`로 정정, `/about/` 규칙 추가, `404-200` → `200` |
+| 4 | 온보딩 Step 1에서 "다음"이 동작하지 않음 | `OnboardingScreen`이 모듈 스코프 `Dimensions.get('window')`로 슬라이드 폭을 잡았다. 웹에서 이 값은 **브라우저 창 폭**인데 리스트는 AppShell이 480px로 좁힌 안에 있어 페이징이 어긋남 | `onLayout`으로 **컨테이너 폭**을 직접 측정. `useWindowDimensions`도 '창' 폭이라 같은 문제가 남는다. + `getItemLayout` 지정, `goNext`가 인덱스를 먼저 올림(웹은 프로그램 스크롤에 `onMomentumScrollEnd`가 항상 오지 않음) |
+| 5 | 배포된 앱이 `http://localhost:8000/api` 호출 → 꿈 목록 실패 | Amplify 환경변수 `EXPO_PUBLIC_API_BASE_URL`에 **로컬 개발값이 그대로** 들어가 있었다. `EXPO_PUBLIC_*`는 빌드 시점 인라인이라 빌드는 초록불, 앱만 조용히 실패 (Supabase 변수는 정상 → 로그인은 됐다) | 콘솔에서 값 수정 + `amplify.yml`에 빌드 가드 추가 |
+| 6 | 5번 가드가 이 사고를 못 잡음 | 가드가 **빈 값만** 검사했는데 실제 사고는 "비었다"가 아니라 "로컬값이 들어갔다" | `localhost`/`127.0.0.1`/`0.0.0.0` 값도 빌드 중단하도록 강화 |
+
+### 6. 배포 후 검증 (전부 통과)
+
+| 확인 | 결과 |
+|---|---|
+| `/` `/archive` `/settings` | 웹 앱 |
+| `/about` | 랜딩 (*DreamTeller — AI가 함께하는 꿈 일기*) |
+| **`/terms.html` `/privacy.html`** | **약관/방침 원문 200** ⭐ |
+| 번들의 API URL | `https://api.dreamteller.io.kr/api` |
+| 백엔드 `/health` | 200 |
+| 웹 오리진 CORS 프리플라이트 | `allow-origin: *`, `allow-headers: authorization` |
+| `/api/dreams` (미인증) | 401 (라우트 정상) |
+| `expo export -p ios` | 성공 — **네이티브 회귀 없음** |
+
+### 7. 미검증 — 다음 세션에서 확인할 것 (우선순위)
+
+1. **꿈 기록 대화 키보드** — 프로덕션 번들에서 `visualViewport` 보정이 실제로 먹는지. 이번 작업 최대 신규 코드인데 로컬 개발서버에서만 봤다
+2. **해몽 카드 저장/공유** — html2canvas가 `LinearGradient`를 제대로 그리는지, Web Share API 파일 공유
+3. **홈 화면에 추가 (PWA)** — 전체화면 실행 시 상하단 잘림 여부 (`viewport-fit=cover` + `100dvh`)
+4. **온보딩 수정 확인** — 3장 페이징 + 창 리사이즈
+5. 로그인 전 딥링크 — `RootNavigator`가 인증 상태로 네비게이터를 `key` 교체하므로, 미로그인 딥링크는 인증 후 홈으로 간다 (알려진 한계, 미해결)
+6. Apple 로그인 웹 플로우 — Services ID + 도메인 검증 필요 (미착수)
+7. **build 11 묶음**(줄거리 문단 간격 + A1 전체 리팩터) — 웹 작업 이전부터의 최우선 항목. 여전히 유효
+
+---
+
+## 이전 세션 요약 (2026-08-29, 줄거리 JSON 원문 노출 버그 — 규명 → 수정 → 배포 → 검증) 🐛
 
 > 사용자 제보 스크린샷 1장에서 시작. **서버만 수정**(앱 코드 변경 없음). 커밋 `d52b00e` 배포 완료.
 
