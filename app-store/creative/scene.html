@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<!--
+  App Store 크리에이티브 자산 (헤더 21:9 / 검색 결과 3:2) 공용 장면.
+  크기는 쿼리로 받는다: scene.html?w=3840&h=1646
+  핵심 요소(달 + 문구)는 화면 중앙 세로 띠에 모아 어떤 크롭에서도 살아남게 한다.
+-->
+<style>
+  @font-face { font-family: 'Pretendard'; font-weight: 700; src: url('../../app/assets/fonts/Pretendard-Bold.otf'); }
+  @font-face { font-family: 'Pretendard'; font-weight: 500; src: url('../../app/assets/fonts/Pretendard-Medium.otf'); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overflow: hidden; background: #08080e; }
+  body { font-family: 'Pretendard', -apple-system, sans-serif; position: relative; }
+  #sky {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(45% 60% at 50% 38%, rgba(107,63,160,0.42) 0%, rgba(45,27,105,0.22) 40%, rgba(13,13,26,0) 72%),
+      linear-gradient(180deg, #121034 0%, #0C0B22 55%, #07070f 100%);
+  }
+  canvas { position: absolute; inset: 0; }
+  .center {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+  }
+  h1 {
+    color: #F2F0FA; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25;
+    text-shadow: 0 0.06em 0.5em rgba(0,0,0,0.55);
+    word-break: keep-all;
+  }
+  .sub {
+    color: #B59BE0; font-weight: 500; letter-spacing: 0.01em;
+    margin-top: 0.55em; word-break: keep-all;
+  }
+</style>
+</head>
+<body>
+  <div id="sky"></div>
+  <canvas id="stars"></canvas>
+  <canvas id="clouds"></canvas>
+  <div class="center" id="center">
+    <svg id="moon" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="moonFill" cx="40%" cy="36%" r="75%">
+          <stop offset="0%" stop-color="#FFF3C4"/><stop offset="45%" stop-color="#FFE07A"/><stop offset="100%" stop-color="#F0C040"/>
+        </radialGradient>
+        <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#FFD86B" stop-opacity="0.28"/><stop offset="50%" stop-color="#FFD86B" stop-opacity="0.08"/><stop offset="100%" stop-color="#FFD86B" stop-opacity="0"/>
+        </radialGradient>
+        <mask id="crescent">
+          <rect width="400" height="400" fill="black"/>
+          <circle cx="190" cy="210" r="120" fill="white"/>
+          <circle cx="252" cy="174" r="112" fill="black"/>
+        </mask>
+      </defs>
+      <circle cx="168" cy="222" r="175" fill="url(#halo)"/>
+      <rect width="400" height="400" fill="url(#moonFill)" mask="url(#crescent)"/>
+    </svg>
+    <h1 id="title">흘려보낸 간밤의 꿈,<br>대화로 기록해요</h1>
+    <div class="sub" id="sub">AI와 함께 쓰는 꿈 일기</div>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const W = +q.get('w') || 3840, H = +q.get('h') || 1646;
+  document.documentElement.style.width = document.body.style.width = W + 'px';
+  document.documentElement.style.height = document.body.style.height = H + 'px';
+
+  // 기준 단위: 짧은 변. 21:9와 3:2에서 같은 비율로 보이게
+  const u = Math.min(W, H) / 1646;
+  const moon = document.getElementById('moon');
+  moon.style.width = moon.style.height = (560 * u) + 'px';
+  moon.style.marginBottom = (-40 * u) + 'px';
+  document.getElementById('title').style.fontSize = (150 * u) + 'px';
+  document.getElementById('sub').style.fontSize = (64 * u) + 'px';
+
+  // 결정적 난수 (매번 같은 별 배치)
+  let seed = 20261024;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+
+  // 달 + 문구 영역(가운데 타원)에는 별을 찍지 않는다 — 글자 가독성
+  const inCenter = (x, y) => {
+    const dx = (x - W / 2) / (1000 * u), dy = (y - H / 2) / (620 * u);
+    return dx * dx + dy * dy < 1;
+  };
+  const stars = document.getElementById('stars');
+  stars.width = W; stars.height = H;
+  const sc = stars.getContext('2d');
+  const n = Math.round(W * H / 26000);
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * W, y = rnd() * H * 0.85;
+    const r = (0.8 + rnd() * 2.6) * u * 1.6;
+    const a = 0.25 + rnd() * 0.7;
+    if (inCenter(x, y)) continue;
+    sc.beginPath(); sc.fillStyle = `rgba(255,255,255,${a})`;
+    sc.arc(x, y, r, 0, Math.PI * 2); sc.fill();
+  }
+  // 반짝이는 큰 별 몇 개 (글로우)
+  for (let i = 0; i < 14; i++) {
+    const x = rnd() * W, y = rnd() * H * 0.7, r = (14 + rnd() * 18) * u;
+    if (inCenter(x, y)) continue;
+    const g = sc.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.25, 'rgba(255,255,255,0.3)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    sc.fillStyle = g; sc.beginPath(); sc.arc(x, y, r, 0, Math.PI * 2); sc.fill();
+  }
+
+  // 하단 구름 띠 (아이콘의 구름 톤)
+  const clouds = document.getElementById('clouds');
+  clouds.width = W; clouds.height = H;
+  const cc = clouds.getContext('2d');
+  cc.filter = `blur(${18 * u}px)`;
+  const layers = [
+    { y: H * 1.02, r: 300, color: 'rgba(35,35,74,0.95)', step: 330 },
+    { y: H * 1.08, r: 360, color: 'rgba(54,53,100,0.85)', step: 420 },
+  ];
+  for (const L of layers) {
+    for (let x = -200 * u; x < W + 400 * u; x += L.step * u) {
+      const rr = L.r * u * (0.75 + rnd() * 0.5);
+      // 가운데(문구 아래)는 구름을 낮춰 글자를 가리지 않게
+      const centerDip = Math.max(0, 1 - Math.abs(x - W / 2) / (W * 0.28)) * 160 * u;
+      cc.fillStyle = L.color; cc.beginPath();
+      cc.arc(x, L.y + centerDip - rnd() * 60 * u, rr, 0, Math.PI * 2); cc.fill();
+    }
+  }
+</script>
+</body>
+</html>
