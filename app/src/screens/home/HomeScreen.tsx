@@ -5,6 +5,7 @@ import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DreamCard } from '@/components/dream/DreamCard';
+import { ReminderPromptCard } from '@/components/home/ReminderPromptCard';
 import { ScreenWrapper } from '@/components/layout/ScreenWrapper';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -64,6 +65,8 @@ export function HomeScreen() {
           fullWidth
         />
       </Card>
+
+      <ReminderPromptCard onPressOtherTime={() => navigation.navigate('Settings')} />
 
       <Text style={styles.sectionLabel}>최근 꿈</Text>
       {isLoading ? (
