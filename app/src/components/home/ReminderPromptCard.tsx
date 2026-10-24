@@ -1,11 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { colors } from '@/constants/colors';
-import { radius, spacing } from '@/constants/spacing';
-import { textStyles } from '@/constants/typography';
+import { spacing } from '@/constants/spacing';
+import { textStyles, typography } from '@/constants/typography';
 import {
   isReminderSupported,
   requestNotificationPermission,
@@ -13,33 +15,41 @@ import {
 import { shouldShowReminderPrompt, useSettingsStore } from '@/store/settingsStore';
 import { useUIStore } from '@/store/uiStore';
 import { showAlert } from '@/utils/alert';
+import { formatClockKo } from '@/utils/date';
 
 /**
- * 홈 상단의 아침 알림 제안 카드.
+ * 홈의 아침 알림 제안 카드.
  *
  * 앱을 설치하는 순간(낮)과 꿈을 기억하는 순간(기상 직후)이 달라서, 첫 실행에 기록할 꿈이
  * 없으면 그대로 이탈하는 사용자가 대부분이었다. 알림은 설정 화면 안쪽에만 있어서
- * 거의 켜지지 않았으므로, 시간 버튼 한 번으로 권한 요청 + 예약까지 끝내게 한다.
+ * 거의 켜지지 않았으므로, 홈에서 시각을 고르고 버튼 한 번으로 권한 요청 + 예약까지 끝낸다.
  */
-
-const TIME_OPTIONS = [7, 8, 9] as const;
-
-interface ReminderPromptCardProps {
-  onPressOtherTime: () => void;
-}
-
-export function ReminderPromptCard({ onPressOtherTime }: ReminderPromptCardProps) {
+export function ReminderPromptCard() {
   const visible = useSettingsStore(shouldShowReminderPrompt);
+  const defaultHour = useSettingsStore((s) => s.hour);
+  const defaultMinute = useSettingsStore((s) => s.minute);
   const setReminder = useSettingsStore((s) => s.setReminder);
   const dismiss = useSettingsStore((s) => s.dismissReminderPrompt);
   const showToast = useUIStore((s) => s.showToast);
-  const [pendingHour, setPendingHour] = useState<number | null>(null);
+
+  const initialTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(defaultHour, defaultMinute, 0, 0);
+    return d;
+  }, [defaultHour, defaultMinute]);
+  const [time, setTime] = useState<Date>(initialTime);
+  // 안드로이드 시각 선택기는 열자마자 뜨는 모달이라 탭할 때만 띄운다. iOS는 휠을 카드 안에 펼쳐 둔다
+  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!isReminderSupported || !visible) return null;
 
-  const handleSelect = async (hour: number) => {
-    if (pendingHour !== null) return;
-    setPendingHour(hour);
+  const hour = time.getHours();
+  const minute = time.getMinutes();
+
+  const handleConfirm = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const granted = await requestNotificationPermission();
       if (!granted) {
@@ -53,49 +63,70 @@ export function ReminderPromptCard({ onPressOtherTime }: ReminderPromptCardProps
         );
         return;
       }
-      await setReminder({ enabled: true, hour, minute: 0 });
-      showToast(`매일 오전 ${hour}시에 꿈을 물어볼게요`, 'success');
+      await setReminder({ enabled: true, hour, minute });
+      showToast(`매일 ${formatClockKo(hour, minute)}에 꿈을 물어볼게요`, 'success');
     } catch {
       showToast('알림을 설정하지 못했어요. 설정에서 다시 시도해 주세요', 'error');
     } finally {
-      setPendingHour(null);
+      setSaving(false);
     }
   };
 
   return (
     <Card variant="glass" padding="lg" style={styles.card}>
       <View style={styles.header}>
-        <Ionicons name="alarm-outline" size={20} color={colors.primaryLight} />
-        <Text style={styles.title}>꿈은 깨고 나면 금방 사라져요</Text>
+        <Ionicons name="alarm-outline" size={18} color={colors.primaryLight} />
+        <Text style={styles.title} lineBreakStrategyIOS="hangul-word">
+          꿈은 깨고 나면 금방 사라져요
+        </Text>
       </View>
-      <Text style={styles.desc}>
-        매일 아침 일어날 즈음 Luna가 먼저 물어볼게요. 몇 시가 좋아요?
+      <Text style={styles.desc} lineBreakStrategyIOS="hangul-word">
+        일어날 즈음 Luna가 먼저 물어볼게요. 몇 시에 알려드릴까요?
       </Text>
 
-      <View style={styles.chips}>
-        {TIME_OPTIONS.map((hour) => (
+      {Platform.OS === 'ios' ? (
+        <TimePicker
+          value={time}
+          onChange={setTime}
+          onRequestClose={() => {}}
+          style={styles.picker}
+        />
+      ) : (
+        <>
           <Pressable
-            key={hour}
-            style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-            onPress={() => void handleSelect(hour)}
-            disabled={pendingHour !== null}
+            style={styles.androidTimeRow}
+            onPress={() => setAndroidPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel={`매일 오전 ${hour}시에 알림 받기`}
+            accessibilityLabel="알림 시간 선택"
           >
-            <Text style={styles.chipText}>
-              {pendingHour === hour ? '설정 중…' : `오전 ${hour}시`}
-            </Text>
+            <Text style={styles.androidTime}>{formatClockKo(hour, minute)}</Text>
           </Pressable>
-        ))}
-      </View>
+          {androidPickerOpen ? (
+            <TimePicker
+              value={time}
+              onChange={setTime}
+              onRequestClose={() => setAndroidPickerOpen(false)}
+            />
+          ) : null}
+        </>
+      )}
 
-      <View style={styles.footer}>
-        <Pressable onPress={onPressOtherTime} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.footerLink}>다른 시간</Text>
-        </Pressable>
-        <Pressable onPress={() => void dismiss()} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.footerLink}>다음에</Text>
-        </Pressable>
+      <View style={styles.actions}>
+        <Button
+          label="다음에"
+          variant="secondary"
+          onPress={() => void dismiss()}
+          disabled={saving}
+          style={styles.laterButton}
+        />
+        <Button
+          label="알림 받기"
+          variant="primary"
+          onPress={() => void handleConfirm()}
+          loading={saving}
+          disabled={saving}
+          style={styles.confirmButton}
+        />
       </View>
     </Card>
   );
@@ -109,43 +140,38 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   title: {
-    ...textStyles.heading3,
+    ...textStyles.bodyMd,
+    fontSize: typography.sizes.md,
+    lineHeight: typography.sizes.md * 1.4,
     color: colors.textPrimary,
     flexShrink: 1,
   },
   desc: {
-    ...textStyles.body,
-    color: colors.textSecondary,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  chip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-  chipPressed: {
-    backgroundColor: colors.primarySurface,
-  },
-  chipText: {
-    ...textStyles.label,
-    color: colors.textInverse,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-  },
-  footerLink: {
     ...textStyles.caption,
     color: colors.textSecondary,
+  },
+  picker: {
+    alignSelf: 'center',
+  },
+  androidTimeRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  androidTime: {
+    ...textStyles.heading3,
+    color: colors.primaryLight,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  laterButton: {
+    flex: 1,
+  },
+  confirmButton: {
+    flex: 2,
   },
 });

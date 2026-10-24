@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -21,6 +21,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useUIStore } from '@/store/uiStore';
 import { showAlert } from '@/utils/alert';
+import { formatClockKo } from '@/utils/date';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -51,12 +52,6 @@ export function SettingsScreen() {
     d.setHours(reminderHour, reminderMinute, 0, 0);
     return d;
   }, [reminderHour, reminderMinute]);
-
-  const formatTime = (h: number, m: number) => {
-    const period = h < 12 ? '오전' : '오후';
-    const hour12 = h % 12 === 0 ? 12 : h % 12;
-    return `${period} ${hour12}:${String(m).padStart(2, '0')}`;
-  };
 
   const handleToggleReminder = async (value: boolean) => {
     if (value) {
@@ -177,7 +172,11 @@ export function SettingsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.body}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.sectionLabel}>프로필</Text>
         <Card variant="default" padding="lg" style={styles.profileCard}>
           {isGuest ? (
@@ -245,7 +244,7 @@ export function SettingsScreen() {
                 >
                   <Text style={styles.linkLabel}>알림 시간</Text>
                   <Text style={styles.reminderTime}>
-                    {formatTime(reminderHour, reminderMinute)}
+                    {formatClockKo(reminderHour, reminderMinute)}
                   </Text>
                 </Pressable>
                 {showTimePicker ? (
@@ -290,7 +289,7 @@ export function SettingsScreen() {
             fullWidth
           />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -331,10 +330,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   headerSpacer: { width: 28 },
-  body: {
+  scroll: {
     flex: 1,
+  },
+  body: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+    paddingBottom: spacing['2xl'],
     gap: spacing.sm,
   },
   sectionLabel: {

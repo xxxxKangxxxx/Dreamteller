@@ -66,7 +66,7 @@ export function HomeScreen() {
         />
       </Card>
 
-      <ReminderPromptCard onPressOtherTime={() => navigation.navigate('Settings')} />
+      <ReminderPromptCard />
 
       <Text style={styles.sectionLabel}>최근 꿈</Text>
       {isLoading ? (

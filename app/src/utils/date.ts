@@ -24,3 +24,10 @@ export function getGreeting(now: Date = new Date()): { label: string; emoji: str
   if (hour >= 18 && hour < 22) return { label: '좋은 저녁이에요', emoji: '🌆' };
   return { label: '좋은 밤이에요', emoji: '🌙' };
 }
+
+/** 시각을 "오전 8:00" 형식으로 */
+export function formatClockKo(hour: number, minute: number): string {
+  const period = hour < 12 ? '오전' : '오후';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${period} ${hour12}:${String(minute).padStart(2, '0')}`;
+}
